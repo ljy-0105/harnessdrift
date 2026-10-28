@@ -318,10 +318,12 @@ tests/
 
 ## 分步交接文档
 
+- **`PROGRESS.md` 先读这个** —— 现在停在哪、数字各是多少、下一步从哪接
 - `HANDOFF-STEP0.md` 骨架与三条契约
 - `HANDOFF-STEP1.md` 客服 agent + 评测器
-- `HANDOFF-STEP3.md` 闭环：接受规则、停止条件、报告
+- `HANDOFF-STEP3.md` 闭环 + 安全档的锁定名单
 - `HANDOFF-STEP4.md` 归因与消融：原子怎么切、对照怎么读
+- `runs/SAFETY_TRADEOFF.md` 单题实验：哪一句买的分、哪一句踩的雷
 
 ## 下一步（第 5 步）
 
