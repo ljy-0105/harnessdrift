@@ -1,17 +1,27 @@
 # HarnessDrift — 自改进 agent harness（RSI 骨架）
 
-一个让**提示词自己迭代**的研究原型：agent 在一批带确定性判分的任务上跑分，
+一个让**提示词自己迭代**的研究原型：agent 在 38 道带确定性判分的售后题上跑分，
 失败样本交给改进器产出补丁，补丁经守卫校验后应用到新树，再评测、再迭代。
-每一步都有可复查的证据，曲线上的每个点都带 ±。
-
-参考 `google-research/harness2` 与 `google-research/dream-rsi` 的问题设定：
 **不训练模型，只让 harness（提示词 / 技能文档 / 工具描述）在评测反馈下演化。**
+曲线上的每个点都带 ±，`runs/` 里是原始 json，README 的每个数字都能对回去。
 
-一个 Propose / Probe / Compose 风格的自改进 harness 骨架，思路来自
-[google-research/harness2](https://github.com/google-research/harness2)，
-探测器调度策略的灵感来自 [google-research/dream-rsi](https://github.com/google-research/dream-rsi)。
+思路来自 [google-research/harness2](https://github.com/google-research/harness2)（Propose / Probe / Compose 骨架）
+与 [google-research/dream-rsi](https://github.com/google-research/dream-rsi)（探测器调度）。
 
-**当前状态：只有契约层，没有业务逻辑，不调用任何模型。** 第 1 步才开始接客服 Agent。
+**实测：31.67 → 36.00（+4.33），38 题 × 3 次 × 5 轮，15 分钟。**
+成本约 ¥1.4 —— 这是按实测 5,087 token/题 × 570 题估的，不是账单；早期曲线的 `curve.json`
+里还没有用量字段，`total_tokens` 是后来才接的（见「实测曲线」一节的说明）。
+
+三个能独立讲清楚的结论：
+
+1. **回退规则**。只看均值的接受规则会收下"涨 1 分但卖掉一道安全题"的补丁。第 2、3 轮均值都高于基线，
+   却被拦下 —— 它们各自把一道原本稳定通过的题变成稳定挂掉（T07/T34、T27/T34）。
+   **拿旧能力换新能力不算改进。**
+2. **原子归因**。第 1 轮 +4.00 里，最强单点只贡献 +2.33，**+1.67 是四条一起才有的交互效应** ——
+   只报总分的展示说不清这件事。
+3. **消融**。三档接受规则跑同一套题：`always` +3.00 / `strict` +2.67 / `nonregress` +0.00。
+   默认规则一分没涨，因为它为了保 T12 拒绝了两轮 +4 分的补丁。报告里写的是
+   "这张表只支持接受规则需要论证，不支持排名"。
 
 ## 为什么先做这一层
 
