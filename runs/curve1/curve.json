@@ -1,0 +1,320 @@
+{
+  "when": "2026-10-28T02:35:48.719092+00:00",
+  "config": {
+    "base_dir": "harness\\base",
+    "reps": 3,
+    "max_rounds": 4,
+    "patience": 2,
+    "proposal_patience": 2,
+    "accept": "nonregress",
+    "budget_s": 0.0,
+    "n_tasks": 38,
+    "solver_model": "deepseek-chat",
+    "improver_model": "deepseek-chat"
+  },
+  "stop_reason": "连续 2 轮产不出合法补丁，改进器已无可用想法",
+  "total_elapsed_s": 293.2,
+  "baseline": {
+    "mean": 31.0,
+    "std": 0.0
+  },
+  "final": {
+    "mean": 31.0,
+    "std": 0.0,
+    "round_id": 0,
+    "harness_dir": "harness\\base"
+  },
+  "delta": 0.0,
+  "rounds": [
+    {
+      "round_id": 0,
+      "kind": "base",
+      "harness_dir": "harness\\base",
+      "tree_hash": "1534bc57b8a7a43f",
+      "mean": 31.0,
+      "std": 0.0,
+      "reps": 3,
+      "n_tasks": 38,
+      "solved": 30,
+      "elapsed_s": 280.5,
+      "improved": false,
+      "neutral": false,
+      "changed": {},
+      "warnings": [],
+      "failure_hist": {
+        "期望动作=return_created": 15,
+        "调用了 create_return": 15,
+        "期望动作=escalated": 2,
+        "调用了 escalate_to_human": 2,
+        "没有说「可以再换」": 2,
+        "调用了 file_damage_claim": 2
+      },
+      "stable_fail": [
+        "T02",
+        "T08",
+        "T14",
+        "T18",
+        "T31"
+      ],
+      "flaky": {
+        "T15": [
+          0.0,
+          1.0,
+          0.0
+        ],
+        "T32": [
+          0.0,
+          0.0,
+          1.0
+        ],
+        "T33": [
+          1.0,
+          0.0,
+          0.0
+        ]
+      },
+      "passes": {
+        "T01": [
+          1,
+          1,
+          1
+        ],
+        "T02": [
+          0,
+          0,
+          0
+        ],
+        "T03": [
+          1,
+          1,
+          1
+        ],
+        "T04": [
+          1,
+          1,
+          1
+        ],
+        "T05": [
+          1,
+          1,
+          1
+        ],
+        "T06": [
+          1,
+          1,
+          1
+        ],
+        "T07": [
+          1,
+          1,
+          1
+        ],
+        "T08": [
+          0,
+          0,
+          0
+        ],
+        "T09": [
+          1,
+          1,
+          1
+        ],
+        "T10": [
+          1,
+          1,
+          1
+        ],
+        "T11": [
+          1,
+          1,
+          1
+        ],
+        "T12": [
+          1,
+          1,
+          1
+        ],
+        "T13": [
+          1,
+          1,
+          1
+        ],
+        "T14": [
+          0,
+          0,
+          0
+        ],
+        "T15": [
+          0,
+          1,
+          0
+        ],
+        "T16": [
+          1,
+          1,
+          1
+        ],
+        "T17": [
+          1,
+          1,
+          1
+        ],
+        "T18": [
+          0,
+          0,
+          0
+        ],
+        "T19": [
+          1,
+          1,
+          1
+        ],
+        "T20": [
+          1,
+          1,
+          1
+        ],
+        "T21": [
+          1,
+          1,
+          1
+        ],
+        "T22": [
+          1,
+          1,
+          1
+        ],
+        "T23": [
+          1,
+          1,
+          1
+        ],
+        "T24": [
+          1,
+          1,
+          1
+        ],
+        "T25": [
+          1,
+          1,
+          1
+        ],
+        "T26": [
+          1,
+          1,
+          1
+        ],
+        "T27": [
+          1,
+          1,
+          1
+        ],
+        "T28": [
+          1,
+          1,
+          1
+        ],
+        "T29": [
+          1,
+          1,
+          1
+        ],
+        "T30": [
+          1,
+          1,
+          1
+        ],
+        "T31": [
+          0,
+          0,
+          0
+        ],
+        "T32": [
+          0,
+          0,
+          1
+        ],
+        "T33": [
+          1,
+          0,
+          0
+        ],
+        "T34": [
+          1,
+          1,
+          1
+        ],
+        "T35": [
+          1,
+          1,
+          1
+        ],
+        "T36": [
+          1,
+          1,
+          1
+        ],
+        "T37": [
+          1,
+          1,
+          1
+        ],
+        "T38": [
+          1,
+          1,
+          1
+        ]
+      },
+      "errors": {},
+      "patch_chars": 0
+    },
+    {
+      "round_id": 1,
+      "kind": "rejected",
+      "harness_dir": "",
+      "tree_hash": "",
+      "mean": 31.0,
+      "std": 0.0,
+      "reps": 3,
+      "n_tasks": 38,
+      "solved": 30,
+      "elapsed_s": 0.0,
+      "improved": false,
+      "neutral": false,
+      "changed": {},
+      "warnings": [
+        "改进器输出被截断（finish_reason=length, 1200 tokens）；请调大 LLM_MAX_TOKENS 或让改进器少输出一些"
+      ],
+      "failure_hist": {},
+      "stable_fail": [],
+      "flaky": {},
+      "passes": {},
+      "errors": {},
+      "patch_chars": 2266
+    },
+    {
+      "round_id": 2,
+      "kind": "rejected",
+      "harness_dir": "",
+      "tree_hash": "",
+      "mean": 31.0,
+      "std": 0.0,
+      "reps": 3,
+      "n_tasks": 38,
+      "solved": 30,
+      "elapsed_s": 0.0,
+      "improved": false,
+      "neutral": false,
+      "changed": {},
+      "warnings": [
+        "改进器输出被截断（finish_reason=length, 1200 tokens）；请调大 LLM_MAX_TOKENS 或让改进器少输出一些"
+      ],
+      "failure_hist": {},
+      "stable_fail": [],
+      "flaky": {},
+      "passes": {},
+      "errors": {},
+      "patch_chars": 2179
+    }
+  ]
+}

@@ -1,0 +1,144 @@
+{
+  "when": "2026-10-27T13:09:11.054104+00:00",
+  "harness": "harness/base",
+  "harness_hash": "4dde1321fac64a96",
+  "model": "deepseek-chat",
+  "elapsed_s": 46.5,
+  "summary": {
+    "n": 20,
+    "passed": 12,
+    "pass_rate": 0.6,
+    "failure_histogram": {
+      "期望动作=return_created": 3,
+      "调用了 create_return": 3,
+      "没有编造订单号": 3,
+      "期望动作=escalated": 1,
+      "调用了 escalate_to_human": 1,
+      "调用了 get_return_policy": 1,
+      "调用了 lookup_order": 1
+    }
+  },
+  "tasks": [
+    {
+      "task_id": "T01",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T02",
+      "value": 0.0,
+      "failed": [
+        "期望动作=return_created",
+        "调用了 create_return"
+      ]
+    },
+    {
+      "task_id": "T03",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T04",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T05",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T06",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T07",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T08",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T09",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T10",
+      "value": 0.0,
+      "failed": [
+        "没有编造订单号"
+      ]
+    },
+    {
+      "task_id": "T11",
+      "value": 0.0,
+      "failed": [
+        "没有编造订单号"
+      ]
+    },
+    {
+      "task_id": "T12",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T13",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T14",
+      "value": 0.0,
+      "failed": [
+        "期望动作=return_created",
+        "调用了 create_return"
+      ]
+    },
+    {
+      "task_id": "T15",
+      "value": 0.0,
+      "failed": [
+        "期望动作=escalated",
+        "调用了 escalate_to_human"
+      ]
+    },
+    {
+      "task_id": "T16",
+      "value": 0.0,
+      "failed": [
+        "调用了 get_return_policy"
+      ]
+    },
+    {
+      "task_id": "T17",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T18",
+      "value": 0.0,
+      "failed": [
+        "期望动作=return_created",
+        "调用了 create_return"
+      ]
+    },
+    {
+      "task_id": "T19",
+      "value": 1.0,
+      "failed": []
+    },
+    {
+      "task_id": "T20",
+      "value": 0.0,
+      "failed": [
+        "调用了 lookup_order",
+        "没有编造订单号"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "when": "2026-10-28T02:30:45.682364+00:00",
+  "config": {
+    "base_dir": "harness\\base",
+    "reps": 1,
+    "max_rounds": 2,
+    "patience": 2,
+    "proposal_patience": 2,
+    "accept": "nonregress",
+    "budget_s": 0.0,
+    "n_tasks": 3,
+    "solver_model": "deepseek-chat",
+    "improver_model": "deepseek-chat"
+  },
+  "stop_reason": "已满分，无可改进",
+  "total_elapsed_s": 21.4,
+  "baseline": {
+    "mean": 2.0,
+    "std": 0.0
+  },
+  "final": {
+    "mean": 3.0,
+    "std": 0.0,
+    "round_id": 1,
+    "harness_dir": "runs\\smoke\\round1"
+  },
+  "delta": 1.0,
+  "rounds": [
+    {
+      "round_id": 0,
+      "kind": "base",
+      "harness_dir": "harness\\base",
+      "tree_hash": "1534bc57b8a7a43f",
+      "mean": 2.0,
+      "std": 0.0,
+      "reps": 1,
+      "n_tasks": 3,
+      "solved": 2,
+      "elapsed_s": 7.9,
+      "improved": false,
+      "neutral": false,
+      "changed": {},
+      "warnings": [],
+      "failure_hist": {
+        "期望动作=return_created": 1,
+        "调用了 create_return": 1
+      },
+      "stable_fail": [
+        "T02"
+      ],
+      "flaky": {},
+      "passes": {
+        "T01": [
+          1
+        ],
+        "T02": [
+          0
+        ],
+        "T03": [
+          1
+        ]
+      },
+      "errors": {},
+      "patch_chars": 0
+    },
+    {
+      "round_id": 1,
+      "kind": "accepted",
+      "harness_dir": "runs\\smoke\\round1",
+      "tree_hash": "008db264b08fda38",
+      "mean": 3.0,
+      "std": 0.0,
+      "reps": 1,
+      "n_tasks": 3,
+      "solved": 3,
+      "elapsed_s": 8.8,
+      "improved": true,
+      "neutral": false,
+      "changed": {
+        "added": [],
+        "removed": [],
+        "modified": [
+          "systemprompt.md"
+        ]
+      },
+      "warnings": [],
+      "failure_hist": {},
+      "stable_fail": [],
+      "flaky": {},
+      "passes": {
+        "T01": [
+          1
+        ],
+        "T02": [
+          1
+        ],
+        "T03": [
+          1
+        ]
+      },
+      "errors": {},
+      "patch_chars": 1921
+    }
+  ]
+}

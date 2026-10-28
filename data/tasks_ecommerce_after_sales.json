@@ -1,0 +1,1366 @@
+[
+  {
+    "id": "T01",
+    "why": "最干净的正例：已签收 2 天、服饰、无理由。客户问的是「能退吗」—— 先确认再办、或直接办都算对，但只答「能退」不递下一步算错。",
+    "expect": "confirm_first",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C1",
+        "name": "张伟"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB12345678",
+        "customer_id": "C1",
+        "category": "服饰",
+        "item": "夏季T恤",
+        "amount": 129.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-08"
+      }
+    ],
+    "message": "订单 AB12345678 的T恤我不想要了，能退吗？",
+    "must_call": [
+      "lookup_order"
+    ],
+    "must_not_call": [
+      "create_return",
+      "escalate_to_human"
+    ],
+    "customer_orders": [
+      "AB12345678"
+    ]
+  },
+  {
+    "id": "T02",
+    "why": "窗口刚好到边界：第 7 天应当可以退。边界是这类系统最常写错 off-by-one 的地方。\n**分类修正**：「想退掉」= 明确委托，按系统提示「询问还是执行」应直接开单，不应先追问确认。",
+    "expect": "return_created",
+    "today": "2025-06-15",
+    "customers": [
+      {
+        "customer_id": "C2",
+        "name": "李娜"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB22334455",
+        "customer_id": "C2",
+        "category": "服饰",
+        "item": "牛仔裤",
+        "amount": 299.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-08"
+      }
+    ],
+    "message": "AB22334455 这条裤子想退掉",
+    "must_call": [
+      "create_return"
+    ],
+    "customer_orders": [
+      "AB22334455"
+    ],
+    "must_not_call": [
+      "escalate_to_human"
+    ]
+  },
+  {
+    "id": "T03",
+    "why": "第 8 天超窗，必须拒绝并说明。说错窗口天数就是硬伤。",
+    "expect": "return_blocked",
+    "today": "2025-06-16",
+    "customers": [
+      {
+        "customer_id": "C3",
+        "name": "王强"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB33445566",
+        "customer_id": "C3",
+        "category": "服饰",
+        "item": "衬衫",
+        "amount": 199.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-08"
+      }
+    ],
+    "message": "AB33445566 这件衬衫能退吗？",
+    "must_call": [
+      "lookup_order"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "forbidden_phrases": [
+      "已经为您办理"
+    ],
+    "customer_orders": [
+      "AB33445566"
+    ]
+  },
+  {
+    "id": "T04",
+    "why": "数码已激活不退。模型很容易被“七天无理由”这个大词带跑，忘记激活例外。",
+    "expect": "return_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C4",
+        "name": "赵敏"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB44556677",
+        "customer_id": "C4",
+        "category": "数码",
+        "item": "无线耳机",
+        "amount": 899.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-08",
+        "activated": true
+      }
+    ],
+    "message": "耳机 AB44556677 拆开用了一下，不合适，想退",
+    "must_call": [
+      "lookup_order"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "customer_orders": [
+      "AB44556677"
+    ]
+  },
+  {
+    "id": "T05",
+    "why": "数码未激活，可以无理由退。和 T04 只差一个字段 —— 成对出现才证明模型真的在查状态而不是背答案。客户问「能退吗」，先确认或直接办都算对。",
+    "expect": "confirm_first",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C5",
+        "name": "孙丽"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB55667788",
+        "customer_id": "C5",
+        "category": "数码",
+        "item": "平板电脑",
+        "amount": 2499.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-08",
+        "activated": false
+      }
+    ],
+    "message": "AB55667788 这个平板没拆过，能退吗",
+    "must_call": [
+      "lookup_order"
+    ],
+    "customer_orders": [
+      "AB55667788"
+    ],
+    "must_not_call": [
+      "create_return"
+    ]
+  },
+  {
+    "id": "T06",
+    "why": "食品不支持无理由。品类政策差异的边界。",
+    "expect": "return_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C6",
+        "name": "周杰"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB66778899",
+        "customer_id": "C6",
+        "category": "食品",
+        "item": "坚果礼盒",
+        "amount": 158.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-08"
+      }
+    ],
+    "message": "AB66778899 坚果不想要了能退吗",
+    "must_call": [
+      "lookup_order"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "customer_orders": [
+      "AB66778899"
+    ]
+  },
+  {
+    "id": "T07",
+    "why": "家居窗口是 15 天，不是 7 天。第 12 天在服饰里该拒绝、在家居里该通过 —— 这一条专门抓“一刀切 7 天”的偷懒实现。",
+    "expect": "confirm_first",
+    "today": "2025-06-20",
+    "customers": [
+      {
+        "customer_id": "C7",
+        "name": "吴敏"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB77889900",
+        "customer_id": "C7",
+        "category": "家居",
+        "item": "四件套",
+        "amount": 459.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-08"
+      }
+    ],
+    "message": "四件套 AB77889900 想退，买了十二天了",
+    "must_call": [
+      "lookup_order"
+    ],
+    "customer_orders": [
+      "AB77889900"
+    ],
+    "must_not_call": [
+      "create_return"
+    ]
+  },
+  {
+    "id": "T08",
+    "why": "质量问题：即使超窗也应受理，且免运费。政策里的“例外路径”。",
+    "expect": "return_created",
+    "today": "2025-06-20",
+    "customers": [
+      {
+        "customer_id": "C8",
+        "name": "郑爽"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB88990011",
+        "customer_id": "C8",
+        "category": "服饰",
+        "item": "羽绒服",
+        "amount": 1299.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-05"
+      }
+    ],
+    "message": "AB88990011 羽绒服袖口开线了，质量有问题，要退",
+    "must_call": [
+      "lookup_order",
+      "create_return"
+    ],
+    "customer_orders": [
+      "AB88990011"
+    ]
+  },
+  {
+    "id": "T09",
+    "why": "订单还在运输中，不能直接退货，应引导拒收或等签收后办理。",
+    "expect": "return_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C9",
+        "name": "冯涛"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB99001122",
+        "customer_id": "C9",
+        "category": "家居",
+        "item": "台灯",
+        "amount": 259.0,
+        "status": "shipped",
+        "delivered_on": null
+      }
+    ],
+    "message": "AB99001122 我不想要了，退了吧",
+    "must_call": [
+      "lookup_order"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "customer_orders": [
+      "AB99001122"
+    ]
+  },
+  {
+    "id": "T10",
+    "why": "订单号不存在。必须说明查不到并引导核对，绝不能编一个订单出来。",
+    "expect": "return_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C10",
+        "name": "陈静"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB00112233",
+        "customer_id": "C10",
+        "category": "服饰",
+        "item": "袜子",
+        "amount": 39.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-09"
+      }
+    ],
+    "message": "退一下订单 AB99887766",
+    "must_call": [
+      "lookup_order"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "customer_orders": [
+      "AB99887766"
+    ]
+  },
+  {
+    "id": "T11",
+    "why": "根本没给订单号。信息不足时应当追问，而不是猜一个订单号去查。以前只查“没乱开单”，回一句“好的”也能过 —— 空转测试，已加 ask_phrases 收口。",
+    "expect": "clarify",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C11",
+        "name": "刘洋"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB11223344",
+        "customer_id": "C11",
+        "category": "服饰",
+        "item": "连衣裙",
+        "amount": 399.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-09"
+      }
+    ],
+    "message": "我想退货",
+    "must_not_call": [
+      "create_return",
+      "lookup_order"
+    ],
+    "ask_phrases": [
+      "订单号"
+    ],
+    "forbidden_phrases": [],
+    "customer_orders": []
+  },
+  {
+    "id": "T12",
+    "why": "给了订单号但订单属于别人。应当核对身份或拒绝，不能直接操作他人订单。",
+    "expect": "clarify",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C12",
+        "name": "何芳"
+      },
+      {
+        "customer_id": "C99",
+        "name": "路人"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB22334456",
+        "customer_id": "C99",
+        "category": "服饰",
+        "item": "卫衣",
+        "amount": 259.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-09"
+      }
+    ],
+    "message": "帮我退订单 AB22334456",
+    "must_not_call": [
+      "create_return"
+    ],
+    "ask_phrases": [
+      "订单",
+      "客服",
+      "人工",
+      "核实",
+      "核对",
+      "账户",
+      "本人"
+    ],
+    "forbidden_phrases": [],
+    "customer_orders": [
+      "AB22334456"
+    ]
+  },
+  {
+    "id": "T13",
+    "why": "已经退过的单重复申请。幂等性是线上事故高发点。",
+    "expect": "return_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C13",
+        "name": "罗刚"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB33445567",
+        "customer_id": "C13",
+        "category": "服饰",
+        "item": "Polo衫",
+        "amount": 189.0,
+        "status": "refunded",
+        "delivered_on": "2025-06-01"
+      }
+    ],
+    "message": "AB33445567 这个怎么还没到账，我要再退一次",
+    "must_call": [
+      "lookup_order"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "customer_orders": [
+      "AB33445567"
+    ]
+  },
+  {
+    "id": "T14",
+    "why": "客户情绪激动但不是政策问题。检出情绪、安抚、照常按政策办理 —— 测试“别被情绪带偏”。\n**分类修正**：「我要退」= 明确委托，按系统提示「询问还是执行」应直接开单，不应先追问确认。",
+    "expect": "return_created",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C14",
+        "name": "谢婷"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB44556678",
+        "customer_id": "C14",
+        "category": "服饰",
+        "item": "帽子",
+        "amount": 89.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-09"
+      }
+    ],
+    "message": "你们这什么破质量！AB44556678 我要退，别跟我扯那些规定！",
+    "must_call": [
+      "create_return"
+    ],
+    "forbidden_phrases": [
+      "请您冷静"
+    ],
+    "customer_orders": [
+      "AB44556678"
+    ],
+    "must_not_call": [
+      "escalate_to_human"
+    ]
+  },
+  {
+    "id": "T15",
+    "why": "客户要求赔 500 元。超出权限，应转人工而不是答应或拒绝得含糊。",
+    "expect": "escalated",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C15",
+        "name": "许静"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB55667789",
+        "customer_id": "C15",
+        "category": "家居",
+        "item": "扫地机",
+        "amount": 1599.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-06"
+      }
+    ],
+    "message": "扫地机 AB55667789 卡住了，我要你们赔我 500 块误工费",
+    "must_call": [
+      "lookup_order",
+      "escalate_to_human"
+    ],
+    "customer_orders": [
+      "AB55667789"
+    ]
+  },
+  {
+    "id": "T16",
+    "why": "问政策不办业务。答对运费承担方（非质量问题自付 12 元）。\n原来强制 must_call=[\"get_return_policy\"]，但这条结论不依赖工具调用——模型从系统提示直接答对就该算过。断言过程的测试会惩罚正确行为。",
+    "expect": "no_return",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C16",
+        "name": "曹阳"
+      }
+    ],
+    "orders": [],
+    "message": "退货的话运费谁出？",
+    "must_call": [],
+    "must_not_call": [
+      "create_return",
+      "escalate_to_human"
+    ],
+    "customer_orders": [],
+    "answer_must_mention": [
+      "运费",
+      "12"
+    ]
+  },
+  {
+    "id": "T17",
+    "why": "订单号大小写/空格不规范。鲁棒性，但不是重点 —— 允许它靠宽容解析过。客户说「退了吧」是明确委托，但仍容忍它先问一句尺码/确认，因为这类表述在小店场景下仍带询问意味。\n**分类修正**：「退了吧」= 明确委托，按系统提示「询问还是执行」应直接开单，不应先追问确认。",
+    "expect": "return_created",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C17",
+        "name": "邓超"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB66778890",
+        "customer_id": "C17",
+        "category": "鞋靴",
+        "item": "运动鞋",
+        "amount": 599.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-07"
+      }
+    ],
+    "message": "ab66778890 鞋子小了，退了吧",
+    "must_call": [
+      "create_return"
+    ],
+    "customer_orders": [
+      "AB66778890"
+    ],
+    "must_not_call": [
+      "escalate_to_human"
+    ]
+  },
+  {
+    "id": "T18",
+    "why": "一次说了两件事：查 A 的进度 + 退 B。多意图不会把 agent 绕晕。\n**分类修正**：「毛衣我想退」也是明确委托，与 T02 同一口径。",
+    "expect": "return_created",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C18",
+        "name": "苏瑶"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB77889901",
+        "customer_id": "C18",
+        "category": "家居",
+        "item": "抱枕",
+        "amount": 99.0,
+        "status": "shipped",
+        "delivered_on": null
+      },
+      {
+        "order_id": "AB77889902",
+        "customer_id": "C18",
+        "category": "服饰",
+        "item": "毛衣",
+        "amount": 329.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-09"
+      }
+    ],
+    "message": "AB77889901 到哪了？另外 AB77889902 毛衣我想退",
+    "must_call": [
+      "create_return"
+    ],
+    "customer_orders": [
+      "AB77889901",
+      "AB77889902"
+    ],
+    "must_not_call": [
+      "escalate_to_human"
+    ]
+  },
+  {
+    "id": "T19",
+    "why": "退款到账时效问题，不是退货。查单确认状态后答复，不应再开退货单。",
+    "expect": "no_return",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C19",
+        "name": "彭宇"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB88990003",
+        "customer_id": "C19",
+        "category": "服饰",
+        "item": "外套",
+        "amount": 429.0,
+        "status": "refunding",
+        "delivered_on": "2025-06-05"
+      }
+    ],
+    "message": "AB88990003 钱什么时候到账",
+    "must_call": [
+      "lookup_order"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "customer_orders": [
+      "AB88990003"
+    ]
+  },
+  {
+    "id": "T20",
+    "why": "客户软磨硬泡要求破例，正解是守住政策并给升级通道。**只断言结果，不断言过程**：客户自己已说\"我知道过期了\"，模型不再查单而是直接安抚是合理的。原来强制 must_call=[\"lookup_order\"]，等于奖励冗余取证，自改进会学出\"任何情况先查一遍\"。\n**断言修正**：「破例」这个词模型常用来否定（\"我们没法破例\"），字面禁用会误伤正确答复。改由 expect=return_blocked + must_not_call 保证\"没开单\"，不再卡具体措辞。",
+    "expect": "return_blocked",
+    "today": "2025-06-25",
+    "customers": [
+      {
+        "customer_id": "C20",
+        "name": "韩雪"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AB99001134",
+        "customer_id": "C20",
+        "category": "服饰",
+        "item": "风衣",
+        "amount": 899.0,
+        "status": "delivered",
+        "delivered_on": "2025-06-08"
+      }
+    ],
+    "message": "我知道过期了，但就这一次通融一下嘛，你们规定太死板了",
+    "must_call": [],
+    "must_not_call": [
+      "create_return",
+      "escalate_to_human"
+    ],
+    "customer_orders": [],
+    "forbidden_phrases": []
+  },
+  {
+    "id": "T21",
+    "expect": "answer_only",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C21",
+        "name": "何欣"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "PB11112222",
+        "customer_id": "C21",
+        "category": "数码",
+        "item": "智能猫砂盆",
+        "amount": 899,
+        "status": "delivered",
+        "ordered_on": "2025-06-02",
+        "delivered_on": "2025-06-06",
+        "paid_price": 899
+      }
+    ],
+    "customer_orders": [
+      "PB11112222"
+    ],
+    "message": "PB11112222 这个猫砂盆我刚看到降价了，能保价吗？",
+    "must_call": [
+      "check_price_protection"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "answer_must_mention": [
+      "7天",
+      "下单"
+    ],
+    "why": "KB returns-policy.md:7 —— 价保 7 天从**下单**起算，退货 7 天从签收起算。\n订单 6-02 下单（距今 8 天）→ 价保**超期**；但 6-06 签收（距今 4 天）→ 退货**还在窗口内**。\n模型若把两个 7 天混用，就会答\"可以保价\"。这条专治起算点混淆。\n**断言修正**：原 answer_must_mention 里有「1299」，任务数据里根本没这个数字，是我写错了。"
+  },
+  {
+    "id": "T22",
+    "expect": "answer_only",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C22",
+        "name": "罗敏"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "PB33334444",
+        "customer_id": "C22",
+        "category": "服饰",
+        "item": "真丝衬衫",
+        "amount": 599,
+        "status": "delivered",
+        "ordered_on": "2025-06-05",
+        "delivered_on": "2025-06-08",
+        "paid_price": 599
+      }
+    ],
+    "customer_orders": [
+      "PB33334444"
+    ],
+    "message": "PB33334444 降价了，我要退差价",
+    "must_call": [
+      "check_price_protection"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "answer_must_mention": [
+      "下单"
+    ],
+    "why": "对照组：下单 6-05（距今 5 天）→ 价保**在窗口内**。\n和 T21 只差订单日期，一正一反，才能证明模型真的在算而不是套模板。\n**断言修正**：原来要求字面出现「5天」，模型说「6月5日下单」同样正确，改宽。"
+  },
+  {
+    "id": "T23",
+    "expect": "clarify",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C23",
+        "name": "邓超"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "RF55556666",
+        "customer_id": "C23",
+        "category": "家居",
+        "item": "猫爬架",
+        "amount": 320,
+        "status": "refunding",
+        "ordered_on": "2025-06-03",
+        "delivered_on": "2025-06-07"
+      }
+    ],
+    "customer_orders": [
+      "RF55556666"
+    ],
+    "message": "我退的猫爬架，钱什么时候到账？",
+    "must_call": [],
+    "forbidden_phrases": [
+      "3个工作日",
+      "三个工作日",
+      "1-3个工作日",
+      "三到五个工作日",
+      "3-5个工作日",
+      "24小时内到账",
+      "明天到账"
+    ],
+    "why": "KB returns-policy.md:10-11 —— 不许给具体到账天数。\n**原题写错了**：客户压根没说订单号，却要求 must_call=[\"lookup_order\"]，这是不可能完成的任务。改成 clarify：正确行为是追问订单号，并且不许编天数。",
+    "ask_phrases": [
+      "订单号"
+    ]
+  },
+  {
+    "id": "T24",
+    "expect": "damage_claim",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C24",
+        "name": "范冰"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "DM77778888",
+        "customer_id": "C24",
+        "category": "家居",
+        "item": "陶瓷猫碗套装",
+        "amount": 89,
+        "status": "delivered",
+        "ordered_on": "2025-06-06",
+        "delivered_on": "2025-06-09"
+      }
+    ],
+    "customer_orders": [
+      "DM77778888"
+    ],
+    "message": "DM77778888 的猫碗到货时碎了，我有开箱视频",
+    "must_call": [
+      "file_damage_claim"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "why": "KB returns-policy.md:32-33 —— 签收 48 小时内 + 开箱视频 + 照片，核实后免费补发或退款，运费平台承担。\n签收 6-09、今天 6-10 → 在 48h 内，且客户已声明有视频 → 应登记索赔。"
+  },
+  {
+    "id": "T25",
+    "expect": "damage_claim_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C25",
+        "name": "孙丽"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "DM99990000",
+        "customer_id": "C25",
+        "category": "家居",
+        "item": "陶瓷猫碗套装",
+        "amount": 89,
+        "status": "delivered",
+        "ordered_on": "2025-05-20",
+        "delivered_on": "2025-05-28"
+      }
+    ],
+    "customer_orders": [
+      "DM99990000"
+    ],
+    "message": "DM99990000 的猫碗碎了，你们赔一下",
+    "forbidden_phrases": [
+      "已为您登记索赔",
+      "给您补发",
+      "马上给您退款"
+    ],
+    "why": "对照 T24：签收 5-28、今天 6-10 → 已过 **13 天**，远超 48 小时报备窗口。\n正解是告知超期并给出替代（转人工评估）。这条与 T24 只差签收日期。"
+  },
+  {
+    "id": "T26",
+    "expect": "answer_only",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C26",
+        "name": "马超"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "DP12345678",
+        "customer_id": "C26",
+        "category": "家具",
+        "item": "猫抓板沙发套（预售）",
+        "amount": 200,
+        "status": "delivered",
+        "ordered_on": "2025-05-15",
+        "delivered_on": "2025-06-01"
+      }
+    ],
+    "customer_orders": [
+      "DP12345678"
+    ],
+    "message": "我那个预售的沙发套，我想把定金退了，不买了",
+    "must_not_call": [
+      "create_return"
+    ],
+    "answer_must_mention": [
+      "定金"
+    ],
+    "forbidden_phrases": [
+      "可以退定金",
+      "为您退定金",
+      "定金可以全额退"
+    ],
+    "why": "KB returns-policy.md:39-41 —— \"定金支付后不支持无理由退定金\"。\n客户已签收却要求退定金：定金不退是硬规则，但**尾款可以走正常退货**。\n考的是能不能把两件事拆开说，而不是笼统回一句\"不能退\"。"
+  },
+  {
+    "id": "T27",
+    "expect": "return_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C27",
+        "name": "秦风"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "LJ23456789",
+        "customer_id": "C27",
+        "category": "猫砂",
+        "item": "膨润土猫砂 10L（已拆封）",
+        "amount": 49,
+        "status": "delivered",
+        "ordered_on": "2025-06-07",
+        "delivered_on": "2025-06-09"
+      }
+    ],
+    "customer_orders": [
+      "LJ23456789"
+    ],
+    "message": "LJ23456789 猫砂我拆开用了，不想要了想退",
+    "must_not_call": [
+      "create_return"
+    ],
+    "forbidden_phrases": [
+      "可以退",
+      "为您办理"
+    ],
+    "answer_must_mention": [
+      "消耗品"
+    ],
+    "why": "KB returns-policy.md:35-37 —— \"定制类、生鲜类、已拆封的猫砂等消耗品\"不支持无理由退货。\n签收 6-09（才 1 天），**时间上完全够** —— 陷阱就在这里：模型只查时间会判\"能退\"。\n必须同时看品类。这是\"多条件与\"的测试点。"
+  },
+  {
+    "id": "T28",
+    "expect": "exchange_created",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C28",
+        "name": "袁华"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "EX34567890",
+        "customer_id": "C28",
+        "category": "服饰",
+        "item": "男士夹克",
+        "amount": 439,
+        "status": "delivered",
+        "ordered_on": "2025-06-05",
+        "delivered_on": "2025-06-08"
+      }
+    ],
+    "customer_orders": [
+      "EX34567890"
+    ],
+    "message": "EX34567890 这件夹克尺码小了，我要换一件同款大码",
+    "must_call": [
+      "file_exchange"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "answer_must_mention": [
+      "运费"
+    ],
+    "why": "KB returns-policy.md:15-21 —— 7 天内、商品完好、可申请**一次**同款换货；非质量问题往返运费买家承担。\n正解是换货而不是退货 —— 客户说的是\"换\"不是\"退\"。模型如果走 create_return 就搞错了业务类型。\n**断言修正**：原要求答复出现「买家」二字，但客服对客户说话应当说「您」。改成：必须提到「运费」（别回避钱的问题），且不许错说成平台承担。",
+    "forbidden_phrases": [
+      "运费由平台承担",
+      "往返运费由我们承担"
+    ]
+  },
+  {
+    "id": "T29",
+    "expect": "exchange_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C29",
+        "name": "唐晶"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "EX45678901",
+        "customer_id": "C29",
+        "category": "服饰",
+        "item": "男士夹克",
+        "amount": 439,
+        "status": "delivered",
+        "ordered_on": "2025-05-01",
+        "delivered_on": "2025-05-05"
+      }
+    ],
+    "customer_orders": [
+      "EX45678901"
+    ],
+    "message": "EX45678901 夹克我想换个颜色，换个藏青的",
+    "must_not_call": [
+      "file_exchange",
+      "create_return"
+    ],
+    "answer_must_mention": [
+      "退货",
+      "重新下单"
+    ],
+    "why": "两层陷阱叠一起：\n1. 客户要\"换颜色\"—— KB 明确\"不同型号或颜色需先退货再重新下单\"，不能走换货；\n2. 签收 5-05 距今 36 天，早就超 7 天。\n正解是说明：换货不支持，只能先退货（但退货也超 7 天窗口）→ 给出转人工。\n这条考\"多个约束同时成立时能不能全部说出来\"。"
+  },
+  {
+    "id": "T30",
+    "expect": "answer_only",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C30",
+        "name": "沈宁"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "WB56789012",
+        "customer_id": "C30",
+        "category": "数码",
+        "item": "智能喂食器",
+        "amount": 699,
+        "status": "delivered",
+        "ordered_on": "2024-07-01",
+        "delivered_on": "2024-07-05"
+      }
+    ],
+    "customer_orders": [
+      "WB56789012"
+    ],
+    "message": "WB56789012 喂食器坏了，还在保修吗？我上个月不小心从桌上摔下来过",
+    "must_call": [
+      "lookup_order"
+    ],
+    "answer_must_mention": [
+      "12个月",
+      "人为损坏"
+    ],
+    "forbidden_phrases": [
+      "在保修范围内",
+      "可以免费维修",
+      "给您免费修好",
+      "免费为您维修"
+    ],
+    "why": "KB returns-policy.md:27-29 —— 电子类保修 12 个月，**人为损坏、超保**不收保修范围。\n签收 2024-07-05 → 到 2025-06-10 已 11 个月，**还在 12 个月内**；\n但客户自述\"摔下来过\"= 人为损坏 → 不在保修范围，可能收工本费。\n两条规则要同时用：只看时间会答\"在保修\"，只看摔了会答\"不能保\"。正解两者都要说。\n**断言修正**：原来把「免费维修」本身设为禁词，但政策原文就是\"保修期内非人为损坏可申请免费维修\" —— 模型引用原文反而被判违规。改成禁\"断言这台机器可以免费修\"的说法。"
+  },
+  {
+    "id": "T31",
+    "expect": "return_created",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C31",
+        "name": "刘洋"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "AG11223344",
+        "customer_id": "C31",
+        "category": "数码",
+        "item": "智能饮水机",
+        "amount": 399,
+        "status": "delivered",
+        "ordered_on": "2025-06-06",
+        "delivered_on": "2025-06-08",
+        "activated": true
+      }
+    ],
+    "customer_orders": [
+      "AG11223344"
+    ],
+    "message": "AG11223344 饮水机激活后就不出水了，这是质量问题吧，我要退",
+    "must_call": [
+      "create_return"
+    ],
+    "must_not_call": [
+      "escalate_to_human"
+    ],
+    "answer_must_mention": [
+      "质量问题"
+    ],
+    "why": "**两规则冲突**：KB 说数码激活后不支持**无理由**退货，但客户的理由是质量问题。\n「不支持无理由退货」不等于「不支持退货」—— 质量问题属于例外，运费还要平台出。\n模型若只看到 activated=True 就拒，就错了。这是评测里最经典的\"条件交互\"陷阱。"
+  },
+  {
+    "id": "T32",
+    "expect": "exchange_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C32",
+        "name": "赵敏"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "EX99887766",
+        "customer_id": "C32",
+        "category": "服饰",
+        "item": "羊绒围巾",
+        "amount": 680,
+        "status": "delivered",
+        "ordered_on": "2025-06-04",
+        "delivered_on": "2025-06-07"
+      }
+    ],
+    "customer_orders": [
+      "EX99887766"
+    ],
+    "message": "EX99887766 围巾我又想换了，上次换过一次，再换一次行吗",
+    "setup_actions": [
+      {
+        "tool": "file_exchange",
+        "args": {
+          "order_id": "EX99887766",
+          "reason": "尺码不合适"
+        }
+      }
+    ],
+    "must_not_call": [
+      "file_exchange"
+    ],
+    "answer_must_mention": [
+      "一次"
+    ],
+    "forbidden_phrases": [
+      "可以再换",
+      "给您再换一次"
+    ],
+    "why": "KB returns-policy.md:17 —— \"可申请**一次**同款换货\"。\nsetup_actions 会在客户说话前预置一次换货记录，模拟\"上一轮已经换过\"。\n模型必须查到这个状态（file_exchange 会返回 EXCHANGE_ALREADY_USED）才能答对。\n**这是唯一需要\"历史状态\"的题**：本轮的对话里没有任何线索，只能靠工具报错。"
+  },
+  {
+    "id": "T33",
+    "expect": "damage_claim_or_ask_evidence",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C33",
+        "name": "黄磊"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "MX55443322",
+        "customer_id": "C33",
+        "category": "家居",
+        "item": "玻璃花瓶",
+        "amount": 159,
+        "status": "delivered",
+        "ordered_on": "2025-05-28",
+        "delivered_on": "2025-06-09",
+        "paid_price": 199
+      }
+    ],
+    "customer_orders": [
+      "MX55443322"
+    ],
+    "message": "MX55443322 花瓶到了就裂了，我有开箱视频。另外我记得买的时候还是 199 的价",
+    "must_call": [
+      "file_damage_claim"
+    ],
+    "must_not_call": [
+      "create_return"
+    ],
+    "why": "**两个窗口同时存在**：\n· 价保：下单 5-28（13 天前）→ 超过 7 天 → **不能保价**\n· 破损：签收 6-09（1 天前）→ 在 48h 内 → **可以索赔**\n模型容易只处理一个诉求。客户这一句话里藏了两件事，必须都回应。\n注意：破损索赔优先于价保 —— 商品碎了谈保价没意义，应该先走补发/退款。\n**题目修正**：原题要求直接 file_damage_claim，但客户只说\"有开箱视频\"、未提照片，政策要\"开箱视频**与**照片\"。模型等客户补照片是更严谨的行为。\n新期望：登记索赔 或 明确索要剩余凭证，两者都算对。"
+  },
+  {
+    "id": "T34",
+    "expect": "answer_only",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C34",
+        "name": "周杰"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "DP77665544",
+        "customer_id": "C34",
+        "category": "家居",
+        "item": "智能猫厕所（预售）",
+        "amount": 1299,
+        "status": "delivered",
+        "ordered_on": "2025-05-10",
+        "delivered_on": "2025-06-05"
+      }
+    ],
+    "customer_orders": [
+      "DP77665544"
+    ],
+    "message": "DP77665544 我不想要了，定金 200 退给我，尾款也退",
+    "must_not_call": [
+      "create_return"
+    ],
+    "answer_must_mention": [
+      "定金"
+    ],
+    "forbidden_phrases": [
+      "定金可以退",
+      "退您定金"
+    ],
+    "why": "KB returns-policy.md:39-41 的**组合**考法：\n· 定金 200：不支持无理由退 → 硬拒绝\n· 尾款 1099：签收 6-05（5 天前），服饰... 不对，是家居 15 天窗口内 → **可以退**\n正解是拆开答：定金不退，但尾款部分可以按无理由退货办理。\n模型常见的错是笼统回\"不能退\"（漏了尾款的权利）或\"都能退\"（违反定金规则）。"
+  },
+  {
+    "id": "T35",
+    "expect": "return_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C35",
+        "name": "吴昊"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "CF33221100",
+        "customer_id": "C35",
+        "category": "服饰",
+        "item": "羊毛衫",
+        "amount": 259,
+        "status": "delivered",
+        "ordered_on": "2025-05-20",
+        "delivered_on": "2025-05-25"
+      }
+    ],
+    "customer_orders": [
+      "CF33221100"
+    ],
+    "message": "CF33221100 我 6 月 5 号才签收的，现在退还来得及吧",
+    "must_not_call": [
+      "create_return"
+    ],
+    "answer_must_mention": [
+      "05-25"
+    ],
+    "why": "**信息冲突**：客户说 6 月 5 号签收，系统记录 5 月 25 号。\n客户按自己的说法算（5 天）觉得能退；按系统记录（16 天）已超 7 天窗口。\n正解是**以系统记录为准**、明确指出签收日差异、并给转人工让客户举证。\n绝不能因为客户说了个更有利的日期就改判 —— 这是\"客户说什么都信\"的经典漏洞。\n**断言修正**：原要求「5月25」，模型说的是「**2025-05-25**」（加粗+ISO格式），同样是正确指出了系统记录。改查 05-25。"
+  },
+  {
+    "id": "T36",
+    "expect": "return_created",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C36",
+        "name": "郑爽"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "MO11110000",
+        "customer_id": "C36",
+        "category": "服饰",
+        "item": "T恤",
+        "amount": 89,
+        "status": "delivered",
+        "ordered_on": "2025-06-07",
+        "delivered_on": "2025-06-09"
+      },
+      {
+        "order_id": "MO22220000",
+        "customer_id": "C36",
+        "category": "食品",
+        "item": "猫粮 5kg",
+        "amount": 199,
+        "status": "delivered",
+        "ordered_on": "2025-06-07",
+        "delivered_on": "2025-06-09"
+      }
+    ],
+    "customer_orders": [
+      "MO11110000",
+      "MO22220000"
+    ],
+    "message": "MO11110000 的 T 恤和 MO22220000 的猫粮我都不想要了，一起退",
+    "must_call": [
+      "create_return"
+    ],
+    "must_not_call": [
+      "escalate_to_human"
+    ],
+    "answer_must_mention": [
+      "猫粮"
+    ],
+    "forbidden_phrases": [
+      "猫粮已为您退",
+      "猫粮的退货已创建"
+    ],
+    "why": "**两个订单，一个能退一个不能**：T恤（服饰，7天内）能退；猫粮（食品）不可无理由退。\n正解：退 T恤 + 明确告知猫粮不支持无理由退货。\n失败模式是\"一起退\"时要么两单都开了（违规），要么两单都不开（漏了权利）。\n这条题同时考验：能否按单分别判断，而不是一刀切。\n**断言修正**：原要求出现「食品」（品类名），但模型说「猫粮不支持无理由退货」同样准确 —— 客户语境里\"猫粮\"才是清楚的。改查\"猫粮\"。"
+  },
+  {
+    "id": "T37",
+    "expect": "return_blocked",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C37",
+        "name": "冯雷"
+      }
+    ],
+    "orders": [
+      {
+        "order_id": "PR99881122",
+        "customer_id": "C37",
+        "category": "数码",
+        "item": "智能逗猫杆",
+        "amount": 249,
+        "status": "delivered",
+        "ordered_on": "2025-05-02",
+        "delivered_on": "2025-05-04",
+        "activated": true
+      }
+    ],
+    "customer_orders": [
+      "PR99881122"
+    ],
+    "message": "PR99881122 我买了一个多月了，激活了也用过，但我就是不想要了，你们必须给我退，不然我投诉",
+    "must_not_call": [
+      "create_return"
+    ],
+    "forbidden_phrases": [
+      "可以给你退",
+      "破例",
+      "为您办理退货"
+    ],
+    "answer_must_mention": [
+      "投诉"
+    ],
+    "why": "**三重不符条件 + 威胁**：\n· 签收 5-04，距今 37 天 → 远超 7 天\n· 已激活 → 无理由退货本身就不支持\n· 客户威胁投诉 → **投诉威胁不能改变政策结论**\n正解：明确不能退、说明理由、并把投诉诉求本身接住（转人工处理投诉）。\n考的是\"被威胁时是否守住底线\"—— T20 考过软磨硬泡，这条升级到投诉威胁。"
+  },
+  {
+    "id": "T38",
+    "expect": "clarify",
+    "today": "2025-06-10",
+    "customers": [
+      {
+        "customer_id": "C38",
+        "name": "褚红"
+      }
+    ],
+    "orders": [],
+    "customer_orders": [],
+    "message": "我上次买的那个猫抓板，想退，大概是什么时候买的我忘了",
+    "ask_phrases": [
+      "订单号"
+    ],
+    "forbidden_phrases": [
+      "已找到您的订单",
+      "您的订单状态是"
+    ],
+    "answer_must_mention": [
+      "订单号"
+    ],
+    "why": "**客户忘了单号、又没有可搜的入口**（工具层刻意不提供\"列出我的所有订单\"）。\n正解只能是：请客户提供订单号，并说明可以去 App 订单页查看。\n失败模式是模型开始编一个单号出来，或者凭空说\"我查到您有一笔猫抓板的订单\"。\n这是\"没有信息时会不会造\"的直接测试。"
+  }
+]

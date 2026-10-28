@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.env
+.pytest_cache/
+pytest-of-*/
+tmp*/
+
+# runs/ 不再忽略：曲线、PATCH、归因报告是这个项目的证据，
+# README 里每个数字都能在仓库里对回原始 json。
+# dist/ 是 export 生成的看板，要提交（GitHub Pages 直接开）。

@@ -1,0 +1,337 @@
+{
+  "when": "2026-10-27T13:24:03.714107+00:00",
+  "harness": "harness/base",
+  "harness_hash": "4dde1321fac64a96",
+  "model": "deepseek-chat",
+  "elapsed_s": 130.0,
+  "summary": {
+    "n": 20,
+    "repeat": 3,
+    "mean_passed": 18.67,
+    "std": 0.47,
+    "pass_rate": 0.9333333333333333,
+    "failure_histogram": {
+      "期望动作=return_created": 3,
+      "调用了 create_return": 3,
+      "期望动作=escalated": 1,
+      "调用了 escalate_to_human": 1
+    },
+    "unstable": {
+      "T15": [
+        0.0,
+        1.0,
+        1.0
+      ]
+    },
+    "per_task": {
+      "T01": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T02": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T03": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T04": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T05": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T06": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T07": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T08": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "T09": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T10": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T11": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T12": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T13": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T14": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T15": [
+        0.0,
+        1.0,
+        1.0
+      ],
+      "T16": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T17": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T18": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T19": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "T20": [
+        1.0,
+        1.0,
+        1.0
+      ]
+    }
+  },
+  "tasks": [
+    {
+      "task_id": "T01",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T02",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T03",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T04",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T05",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T06",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T07",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T08",
+      "passes": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "last_failed": [
+        "期望动作=return_created",
+        "调用了 create_return"
+      ]
+    },
+    {
+      "task_id": "T09",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T10",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T11",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T12",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T13",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T14",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T15",
+      "passes": [
+        0.0,
+        1.0,
+        1.0
+      ],
+      "mean": 0.6667,
+      "last_failed": [
+        "期望动作=escalated",
+        "调用了 escalate_to_human"
+      ]
+    },
+    {
+      "task_id": "T16",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T17",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T18",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T19",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T20",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    }
+  ]
+}

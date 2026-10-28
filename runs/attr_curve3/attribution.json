@@ -1,0 +1,75 @@
+{
+  "base": {
+    "mean": 33.0,
+    "std": 0.0
+  },
+  "full": {
+    "mean": 37.0,
+    "std": 0.8165,
+    "ok": true
+  },
+  "reps": 3,
+  "n_tasks": 38,
+  "full_delta": 4.0,
+  "best_atom_delta": 2.3333,
+  "interaction": 1.6667,
+  "atoms": [
+    {
+      "index": 0,
+      "path": "skills/return_eligibility/SKILL.md",
+      "kind": "modify",
+      "label": "5. 质量问题、发错货、少件漏发不受窗口限制，且运费由平台承担",
+      "parent_span": [
+        8,
+        9
+      ],
+      "mean": 35.3333,
+      "std": 0.4714,
+      "delta": 2.3333,
+      "verdict": "有效"
+    },
+    {
+      "index": 1,
+      "path": "systemprompt.md",
+      "kind": "modify",
+      "label": "- **客户在要求**（\"我要退\"、\"帮我退掉\"、\"我要换一件大码\"、\"退给我\"",
+      "parent_span": [
+        19,
+        21
+      ],
+      "mean": 33.3333,
+      "std": 0.4714,
+      "delta": 0.3333,
+      "verdict": "测不出"
+    },
+    {
+      "index": 2,
+      "path": "systemprompt.md",
+      "kind": "modify",
+      "label": "但**要凭证不等于不开单**：可以先按客户陈述的原因把单开了，再在回复里请他补照",
+      "parent_span": [
+        29,
+        29
+      ],
+      "mean": 34.6667,
+      "std": 1.2472,
+      "delta": 1.6667,
+      "verdict": "有效"
+    },
+    {
+      "index": 3,
+      "path": "systemprompt.md",
+      "kind": "modify",
+      "label": "**换货次数是硬上限：每单只能换一次。**客户说\"上次换过一次，再换一次行吗\"这",
+      "parent_span": [
+        47,
+        47
+      ],
+      "mean": 33.3333,
+      "std": 1.2472,
+      "delta": 0.3333,
+      "verdict": "测不出"
+    }
+  ],
+  "notes": []
+}
