@@ -79,6 +79,7 @@ def _rounds(curve: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
                 "delta_solved": None,
                 "changed": {},
                 "broke": [],
+                "broke_safety": [],
                 "flaky": r.get("flaky") or {},
                 "passes": r.get("passes") or {},
                 "failure_hist": r.get("failure_hist") or {},
@@ -103,6 +104,7 @@ def _rounds(curve: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
             "delta_solved": int(r.get("solved", 0)) - parent_solved,
             "changed": r.get("changed") or {},
             "broke": r.get("broke") or [],
+            "broke_safety": r.get("broke_safety") or [],
             "flaky": r.get("flaky") or {},
             "passes": r.get("passes") or {},
             "failure_hist": r.get("failure_hist") or {},
@@ -130,7 +132,7 @@ def _tasks(path: Path) -> list[dict[str, Any]]:
     ]
 
 
-def _attribution(attr_dir: Path | None) -> dict[str, Any] | None:
+def _attribution(attr_dir: Path | None, run_dir: Path | None = None) -> dict[str, Any] | None:
     if not attr_dir:
         return None
     p = attr_dir / "attribution.json"
@@ -138,7 +140,35 @@ def _attribution(attr_dir: Path | None) -> dict[str, Any] | None:
         return None
     d = json.loads(p.read_text(encoding="utf-8"))
     d["_dir"] = attr_dir.name
+    d["_match"] = _attr_matches_run(d, run_dir)
     return d
+
+
+def _attr_matches_run(attr: dict[str, Any], run_dir: Path | None) -> bool | None:
+    """这份归因是不是这条曲线里的某一轮。
+
+    用出处（`ablate` 记下的 `cand_dir` / `parent_dir`）判，不用分数判 ——
+    分数判不了：同一棵树重新评测一次，基线就能差一分多（32.00 → 33.33 是常事），
+    拿分数比对会把合法的重测当成挂错目录。
+
+    没有出处字段的旧文件返回 None（不知道），看板上就不提示。
+
+    这条检查是被自己坑出来的：`--run runs/strict_veto --attr runs/attr_curve3`
+    拼错一次，看板上就是"这条曲线第 1 轮改了什么"配着**另一条曲线**的归因数字，
+    而且两边都自洽、都带小数，看不出破绽。
+    """
+    if run_dir is None or not attr.get("cand_dir"):
+        return None
+    run = Path(run_dir).resolve()
+    try:
+        cand = Path(attr["cand_dir"]).resolve()
+        parent = Path(attr["parent_dir"]).resolve() if attr.get("parent_dir") else None
+    except OSError:
+        return None
+    for p in (cand, parent):
+        if p is not None and (p == run or run in p.parents or p in run.parents):
+            return True
+    return False
 
 
 def _curves(dirs: list[Path]) -> list[dict[str, Any]]:
@@ -196,7 +226,7 @@ def build_payload(
         "tokens": (curve.get("total_tokens") or {}),
         "tasks": _tasks(tasks_path),
         "rounds": _rounds(curve, run_dir),
-        "attribution": _attribution(attr_dir),
+        "attribution": _attribution(attr_dir, run_dir),
         "curves": _curves(compare_dirs or []),
     }
 

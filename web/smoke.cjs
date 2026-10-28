@@ -29,8 +29,12 @@ new Function(logic)();
 mounted = stub.innerHTML;
 if (!mounted || mounted.length < 2000) throw new Error("渲染输出太短：" + mounted.length);
 
-// 5) 结构断言
-const need = ["自改进曲线", "每一轮改了什么", "题矩阵", "归因", "消融", "kpi"];
+// 5) 结构断言：必有的四段 + "有数据才该出现"的两段
+//    归因和消融是可选的（一次没有归因的跑批不该硬凑一段空表格），
+//    但只要数据里有，渲染就必须把那一节画出来 —— 否则就是静默丢内容。
+const need = ["自改进曲线", "每一轮改了什么", "题矩阵", "kpi"]
+  .concat((D.attribution?.atoms || []).length ? ["归因"] : [])
+  .concat((D.curves || []).length ? ["消融"] : []);
 const missing = need.filter((k) => !mounted.includes(k));
 if (missing.length) throw new Error("缺少段落：" + missing.join(","));
 for (const bad of ["undefined", "NaN", "object Object"]) {

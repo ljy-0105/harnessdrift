@@ -131,6 +131,8 @@ def cmd_loop(args: argparse.Namespace) -> int:
         patience=args.patience,
         proposal_patience=args.proposal_patience,
         accept=args.accept,
+        safety_veto=args.safety_veto,
+        safety_mode=args.safety_mode,
         budget_s=args.budget_min * 60 if args.budget_min else 0.0,
         verbose=args.verbose,
     )
@@ -179,6 +181,8 @@ def cmd_ablate(args: argparse.Namespace) -> int:
 
     res = ablate(parent, cand, tasks, llm, reps=args.reps,
                  log=lambda s: print(s, flush=True), verbose=args.verbose)
+    res.parent_dir = str(Path(args.parent))
+    res.cand_dir = str(Path(args.cand))
 
     # 每个单点合出来的树都留一份：报告里点名了哪一条，就得能打开看是哪一条
     for a in res.atoms:
@@ -231,6 +235,11 @@ def cmd_export(args: argparse.Namespace) -> int:
         compare_dirs=compare_dirs,
     )
     rounds = [r for r in payload["rounds"] if r["kind"] != "base"]
+    attr = payload.get("attribution") or {}
+    if attr and attr.get("_match") is False:
+        print(f"警告：归因目录 {attr.get('_dir')} 的父树分数不在 {args.run} 的轮次里，"
+              f"看板上的归因数字和这条曲线对不上 —— 请确认 --attr 是否指错了目录。",
+              file=sys.stderr)
     print(f"看板 {args.out}  （{len(payload['tasks'])} 题，{len(rounds)} 轮，"
           f"{len(payload['curves'])} 条对照，归因={'有' if payload['attribution'] else '无'}）")
     print(f"  双击打开：file:///{Path(args.out).resolve().as_posix()}")
@@ -275,6 +284,14 @@ def main(argv: list[str] | None = None) -> int:
                     choices=["nonregress", "strict", "always"],
                     help="接受规则；always 用来复现朴素 RSI 做对照")
     lp.add_argument("--budget-min", type=float, default=0.0, help="耗时预算（分钟）")
+    # 默认开着。留开关不是为了给"关掉"找理由，是为了能复现加档位之前
+    # 那几条曲线：runs/ablate_* 的旧数字都是无否决时跑出来的。
+    lp.add_argument("--no-safety-veto", dest="safety_veto", action="store_false",
+                    default=True,
+                    help="关掉 safety 题一票否决（复现加档位之前的曲线用）")
+    lp.add_argument("--safety-mode", default="lock", choices=["lock", "parent"],
+                    help="安全档判据：lock=锁定过就必须一直全过（默认）；"
+                         "parent=只认父树稳定通过（第一版，会漏）")
     lp.add_argument("--model", default="", help="求解模型（覆盖环境变量）")
     lp.add_argument("--improver-model", default="", help="改进模型，默认同求解模型")
     lp.add_argument("--improver-max-tokens", type=int, default=8000,

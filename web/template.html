@@ -40,6 +40,8 @@
     font-variant-numeric:tabular-nums;
   }
   .chip b{font-weight:700}
+  .chip.warn{border-color:var(--error);color:var(--error)}
+  .warnbox{border:3px solid var(--error);background:#fff1ee;padding:10px 12px;margin:0 0 12px;font-size:13px;line-height:1.6}
   .ok{color:#2f8f3c} .bad{color:var(--error)} .dim{color:var(--muted)}
   .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:10px}
   .legend i{display:inline-block;width:10px;height:10px;border:2px solid var(--ink);margin-right:5px;vertical-align:-1px}
@@ -63,6 +65,7 @@
   .file{border:2px solid var(--ink);background:#fff;font:12px ui-monospace,Consolas,monospace;padding:1px 6px}
   .file.add{background:#eaf8ea} .file.del{background:#ffe9ec} .file.mod{background:#fff4e2}
   .broke{border:2px solid var(--error);color:var(--error);font-size:12px;padding:1px 7px;background:#fff}
+  .veto{border:2px solid #fff;background:var(--error);color:#fff;font-size:12px;padding:1px 7px}
   details{margin-top:10px;border-top:2px dashed #ddd0bf;padding-top:8px}
   summary{cursor:pointer;font-size:12.5px;color:var(--muted);user-select:none}
   pre.diff{
@@ -126,6 +129,17 @@ function head() {
   const c = D.config || {};
   const base = D.baseline || {}, fin = D.final || {};
   const pos = (D.delta || 0) > 0;
+  // 安全档：只看"稳定通过"（每轮都过）。一轮过一轮挂是抖动，不算守住。
+  const rounds_ = D.rounds || [];
+  const bestRound = rounds_.find((r) => r.round_id === fin.round_id) || {};
+  const baseRound = rounds_.find((r) => r.kind === "base") || {};
+  const safetyIds = (D.tasks || []).filter((t) => t.tier === "safety").map((t) => t.id);
+  const stablePass = (r, id) => {
+    const v = (r.passes || {})[id] || [];
+    return v.length > 0 && v.every((x) => x >= 1);
+  };
+  const safetyKept = safetyIds.filter((id) => stablePass(bestRound, id)).length;
+  const safetyBase = safetyIds.filter((id) => stablePass(baseRound, id)).length;
   return `
   <h1>HarnessDrift · 自改进曲线看板</h1>
   <p class="sub">不训练模型，只让 harness（提示词 / 技能文档 / 工具描述）在评测反馈下演化。
@@ -137,9 +151,11 @@ function head() {
       <div><b class="${pos ? "ok" : "bad"}">${sign(D.delta)}</b><span>净变化</span></div>
       <div><b>${c.n_tasks || "—"}</b><span>题数 × ${c.reps || "—"} 次</span></div>
       <div><b>${dur(D.elapsed_s)}</b><span>总耗时</span></div>
+      ${safetyIds.length ? `<div><b class="${safetyKept === safetyIds.length ? "ok" : "bad"}">${safetyKept}/${safetyIds.length}</b><span>安全档稳定通过（基线 ${safetyBase}/${safetyIds.length}）</span></div>` : ""}
     </div>
     <div class="chips">
       <span class="chip">接受规则 <b>${esc(c.accept)}</b></span>
+      ${c.safety_veto === false ? `<span class="chip warn">安全一票否决 <b>已关</b></span>` : `<span class="chip">安全一票否决 <b>${safetyIds.length ? "开" : "无安全题"}</b></span>`}
       <span class="chip">停止原因 <b>${esc(D.stop_reason)}</b></span>
       <span class="chip">轮数上限 <b>${c.max_rounds ?? "—"}</b></span>
       <span class="chip">patience <b>${c.patience ?? "—"}</b></span>
@@ -236,6 +252,7 @@ function rounds() {
       ...(ch.modified || []).map((f) => `<span class="file mod">~ ${esc(f)}</span>`),
     ].join("");
     const broke = (r.broke || []).map((t) => `<span class="broke">丢失 ${esc(t)}</span>`).join("");
+    const vetoed = (r.broke_safety || []).map((t) => `<span class="veto">安全否决 ${esc(t)}</span>`).join("");
     const flaky = Object.keys(r.flaky || {});
     return `<div class="round ${r.accepted ? "" : "rej"}">
       <div class="rhead">
@@ -248,6 +265,7 @@ function rounds() {
       </div>
       ${files ? `<div class="files">${files}</div>` : ""}
       ${broke ? `<div class="files">${broke}</div>` : ""}
+      ${vetoed ? `<div class="files">${vetoed}</div>` : ""}
       ${flaky.length ? `<div class="meta" style="margin-top:6px">本轮抖动题（各次结果不一致，是噪声不是能力）：${flaky.map(esc).join(" · ")}</div>` : ""}
       ${r.patch ? `<details><summary>看这一轮的补丁（PATCH.md，${r.patch.length} 字符）</summary><pre class="diff">${diffHtml(r.patch)}</pre></details>` : ""}
     </div>`;
@@ -301,6 +319,9 @@ function attribution() {
       <div class="val ${delta > 0 ? "ok" : delta < 0 ? "bad" : "dim"}">${sign(delta)}${tag || ""}</div>
     </div>`;
   return `<div class="card"><h2><span class="n">4</span>归因：这一轮是哪个改动在起作用</h2>
+    ${a._match === false ? `<div class="warnbox">这份归因（<code>${esc(a._dir || "")}</code>）记录的补丁来自
+      <code>${esc(a.cand_dir || "?")}</code>，不在这条曲线的目录下 —— 它多半属于另一次跑批。
+      下面的数字和上面的曲线<b>不是一回事</b>，请看板生成时把 <code>--attr</code> 指对。</div>` : ""}
     <p class="sub" style="margin-bottom:12px">把补丁按 hunk 拆成原子，逐个单独合回父树评测。
     父树 ${f2(a.base.mean)} → 全量 ${f2(a.full.mean)}（${sign(a.full_delta)}），最强单点 ${sign(a.best_atom_delta)}。</p>
     ${atoms.map((o) => row(o.label || `原子 ${o.index}`, o.path, o.delta, o.delta < 0 ? "neg" : "", o.verdict === "有效" ? " ✓" : "")).join("")}

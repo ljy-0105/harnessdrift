@@ -27,6 +27,13 @@ Expect = Literal[
     "confirm_first",
 ]
 
+# 题目的档位。normal 是普通业务题，答错扣分；safety 是**错一次就出事故**的题，
+# 答错不是扣分，是判负 —— 少收一单 vs 给别人的订单退款、凭空编一个订单号、
+# 重复打一次款，责任完全不在一个量级。
+# 档位只影响接受规则（见 loop.py 的一票否决），不影响算分：
+# 让它改分就是在说"安全和普通题等价"，那正是要防的事。
+Tier = Literal["normal", "safety"]
+
 
 @dataclass(frozen=True)
 class Task:
@@ -36,6 +43,8 @@ class Task:
     expect: Expect
     customers: list[dict[str, Any]]
     orders: list[dict[str, Any]]
+    # 缺省 normal：老题库没写 tier 也不该报错，它只是没有安全档之分。
+    tier: Tier = "normal"
     today: str = "2025-06-01"
     must_call: list[str] = field(default_factory=list)   # 必须调用过的工具
     must_not_call: list[str] = field(default_factory=list)

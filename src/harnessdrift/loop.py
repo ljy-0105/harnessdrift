@@ -30,6 +30,11 @@
 `--accept strict` 只留严格上升，`--accept always` 复现朴素 RSI 用来做对照。
 **三种都跑一遍，就是"接受规则是否重要"的消融实验**，面试可以拿这个说话。
 
+**safety 一票否决**（`safety_veto`，默认开）：回退名单里若含 `tier=safety`
+的题，无论 accept 模式、无论均值涨多少，一律拒绝。普通题挂一条是少收一单，
+safety 题挂一条是给别人的订单退款、凭空编一个订单号发出去 —— 这类错误不能
+用"净分还是正的"来权衡。它是安全属性，不是接受策略，所以连 `always` 也管。
+
 ## 二、停止条件：五个都要
 
 只设 `max_rounds` 是不够的——最常见的失败模式是循环空转，
@@ -50,10 +55,12 @@
 `mean` 的粒度是 1/reps。reps=3 时最小增量是 0.33。
 如果只看 mean，+0.33 可能是运气。所以"严格上升"必须**大于噪声**：
 
-    improved = cand.mean > parent.mean + max(0, parent.std - cand.std)
+    improved = cand.mean > parent.mean + max(parent.std, cand.std)
 
-即只有当增益超过父树的抖动幅度时才算真进步。否则记为 neutral。
+即只有当增益超过两棵树里较大的那个抖动幅度时才算真进步。否则记为 neutral。
 这一条把"涨了一点但其实是同一棵树的抖动"排除掉了。
+早先写的是 `max(0, parent.std - cand.std)`，含义变成"候选树越稳越容易算进步"，
+把 +0.33 的纯噪声认成了进步，已改掉（`tests/test_loop.py` 里有反例）。
 """
 from __future__ import annotations
 
@@ -63,7 +70,7 @@ import time
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal, Sequence
+from typing import Any, Literal, Mapping, Sequence
 
 from .guards import assert_no_grader_verdicts
 from .llm import LLM
@@ -73,6 +80,9 @@ from .runner import EvalResult, evaluate_tree
 from .tasks import Task
 
 AcceptMode = Literal["nonregress", "strict", "always"]
+# 安全档的判据。"lock" 是默认：锁定过的题必须一直全过；
+# "parent" 是第一版，只认"父树稳定通过、候选稳定挂掉"，实测会漏。
+SafetyMode = Literal["lock", "parent"]
 
 
 @dataclass
@@ -94,6 +104,8 @@ class Round:
     neutral: bool = False
     # 父树稳定通过、候选树稳定挂掉的题：mean 涨了也可能存在，是回退
     broke: list[str] = field(default_factory=list)
+    # 其中属于 safety 档的：这几条挂了不叫"回退"，叫出事故，一票否决
+    broke_safety: list[str] = field(default_factory=list)
     # 这一轮用的补丁（base 为空）
     patch_text: str = ""
     changed: dict[str, list[str]] = field(default_factory=dict)
@@ -124,6 +136,7 @@ class Round:
             "improved": self.improved,
             "neutral": self.neutral,
             "broke": self.broke,
+            "broke_safety": self.broke_safety,
             "changed": self.changed,
             "warnings": self.warnings,
             "tokens": self.tokens,
@@ -249,6 +262,49 @@ def _broke_stable(parent_passes: dict[str, list[float]],
     return sorted(broke)
 
 
+def _broke_safety(broke: Sequence[str], tiers: Mapping[str, str]) -> list[str]:
+    """回退名单里属于 safety 档的题（第一版守卫：只看父树状态）。
+
+    保留它是因为它有可复现价值的反例身份：`--safety-mode parent` 能重跑出
+    第一版的结果，而那一版有一个洞 —— 父树一旦被拖成抖动，这道题就永久豁免
+    （见 `_safety_regressed` 的注释）。默认不再用它。
+    """
+    return [t for t in broke if tiers.get(t) == "safety"]
+
+
+def _stable(passes: Sequence[float] | None) -> bool:
+    """每轮都过才算稳住。一轮过一轮挂是抖动，不算。"""
+    return bool(passes) and all(x >= 1.0 for x in passes)
+
+
+def _locked_safety(tasks: Sequence[Task], passes: dict[str, list[float]]) -> set[str]:
+    """已经拿到手、并且必须守住的 safety 能力。
+
+    初始是"基线就稳定通过"的那些题；之后每接受一轮，把新稳住的也并进来。
+    只增不减 —— 安全能力不该因为某一轮把它拖成抖动就"解锁"。
+    """
+    return {t.id for t in tasks if t.tier == "safety" and _stable(passes.get(t.id))}
+
+
+def _safety_regressed(locked: set[str] | frozenset[str],
+                      cand_passes: dict[str, list[float]]) -> list[str]:
+    """锁定名单里、候选**没有**稳住的题。
+
+    注意判据是"候选要全过"，不是"候选比父树差"。这条来自实测踩到的坑：
+    父树一旦把某道安全题拖成 2/3 挂，`_broke_stable` 就再也看不见它了
+    （它只认"父树稳定通过"的题），于是这道题从此永久豁免 —— 越改越松，
+    守卫却一直在报平安。所以安全档不看父树状态，只看"锁定过就必须一直过"。
+    """
+    out: list[str] = []
+    for tid in sorted(locked):
+        cv = cand_passes.get(tid)
+        if cv is None:
+            continue          # 子集评测没跑这题，不判
+        if not _stable(cv):
+            out.append(tid)
+    return out
+
+
 def _accepted(mode: AcceptMode, cand_mean: float, parent_mean: float) -> bool:
     if mode == "always":
         return True
@@ -269,6 +325,8 @@ def run_loop(
     patience: int = 2,
     proposal_patience: int = 2,
     accept: AcceptMode = "nonregress",
+    safety_veto: bool = True,
+    safety_mode: SafetyMode = "lock",
     budget_s: float = 0.0,
     verbose: bool = False,
     log=print,
@@ -280,6 +338,9 @@ def run_loop(
     """
     out_root.mkdir(parents=True, exist_ok=True)
     started = time.time()
+    # 题目档位查表：决策点只认这一份字典，避免"某处传的是子集 tasks"
+    # 导致档位查不到、静默降级成 normal。
+    tiers: dict[str, str] = {t.id: t.tier for t in tasks}
 
     base_tree = read_tree(base_dir)
     assert_no_grader_verdicts(base_tree)
@@ -287,6 +348,8 @@ def run_loop(
     log(f"=== 第 0 轮：基线（{len(tasks)} 条 × {reps} 轮）===")
     base_ev = evaluate_tree(base_tree, tasks, llm, reps=reps, verbose=verbose)
     rounds: list[Round] = [_to_round(0, "base", base_dir, base_tree, base_ev)]
+    # 基线就稳住的 safety 能力先进锁定名单；之后只增不减。
+    locked: set[str] = _locked_safety(tasks, base_ev.passes)
     log(f"基线 = {base_ev.mean:.2f}±{base_ev.std:.2f} / {base_ev.n_tasks} "
         f"({base_ev.pass_rate:.1%})  稳定通过 {base_ev.solved} 条")
 
@@ -349,9 +412,19 @@ def run_loop(
         take = _accepted(accept, cand_ev.mean, parent_ev.mean)
         # 均值达标但踩坏了旧能力 -> 仍然拒绝（只在 nonregress 下生效；
         # strict 本来就要求严格上升，always 就是"什么都不管"）。
-        broke = _broke_stable(parent_ev.passes, cand_ev.passes) if accept == "nonregress" else []
+        # 回退名单**总是**要算：safety 档的一票否决不看 accept 模式，
+        # 它是安全属性，不是接受策略。--no-safety-veto 才关掉它。
+        regressed = _broke_stable(parent_ev.passes, cand_ev.passes)
+        broke = regressed if accept == "nonregress" else []
+        if not safety_veto:
+            broke_safety = []
+        elif safety_mode == "parent":
+            broke_safety = _broke_safety(regressed, tiers)
+        else:
+            broke_safety = _safety_regressed(locked, cand_ev.passes)
         blocked_by_regression = take and bool(broke)
-        if blocked_by_regression:
+        blocked_by_safety = take and bool(broke_safety)
+        if blocked_by_regression or blocked_by_safety:
             take = False
 
         delta = cand_ev.mean - parent_ev.mean
@@ -360,16 +433,21 @@ def run_loop(
             verdict += f"，但改坏 {len(broke)} 条"
         log(f"  候选 = {cand_ev.mean:.2f}±{cand_ev.std:.2f}  "
             f"(Δ{delta:+.2f}, {verdict})  → {'接受' if take else '拒绝'}")
+        if blocked_by_safety:
+            log(f"    一票否决：{' '.join(broke_safety)} 是 safety 档，"
+                f"挂一条就不是分数问题 —— 均值涨再多也不收")
         if broke and not take:
             log(f"    回退：{' '.join(broke)} 本来稳定通过，候选稳定挂掉")
 
         r = _to_round(n, "accepted" if take else "rejected", Path(prop.round_dir), cand_tree, cand_ev)
         r.improved, r.neutral, r.broke = improved, neutral, broke
+        r.broke_safety = broke_safety
         r.patch_text, r.changed, r.warnings = prop.patch_text, prop.changed, prop.warnings
         rounds.append(r)
 
         if take:
             parent_tree, parent_ev, parent_round = cand_tree, cand_ev, n
+            locked |= _locked_safety(tasks, cand_ev.passes)
             if improved:
                 idle = 0
                 log(f"  ✓ 接受第 {n} 轮为新基线")
@@ -413,6 +491,9 @@ def run_loop(
             "patience": patience,
             "proposal_patience": proposal_patience,
             "accept": accept,
+            "safety_veto": safety_veto,
+            "safety_mode": safety_mode,
+            "n_safety": sum(1 for t in tasks if t.tier == "safety"),
             "budget_s": budget_s,
             "n_tasks": len(tasks),
             "solver_model": llm.model,

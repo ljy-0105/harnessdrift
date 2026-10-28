@@ -173,6 +173,8 @@ class AblationResult:
     atoms: list[AtomResult] = field(default_factory=list)
     notes: list[str] = field(default_factory=list)
     full_ok: bool = True
+    parent_dir: str = ""
+    cand_dir: str = ""
 
     @property
     def full_delta(self) -> float:
@@ -199,6 +201,9 @@ class AblationResult:
             "interaction": round(self.interaction, 4),
             "atoms": [a.as_dict() for a in self.atoms],
             "notes": self.notes,
+            # 出处：看板要靠它判断"这份归因是不是属于这条曲线"
+            "parent_dir": self.parent_dir,
+            "cand_dir": self.cand_dir,
         }
 
 

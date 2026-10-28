@@ -148,3 +148,55 @@ def test_missing_attribution_is_none_not_an_error(tmp_path):
     run = _curve(tmp_path, rounds=[_rnd(1, 33.0, "accepted")])
     p = build_payload(run, tasks_path=_tasks(tmp_path), attr_dir=tmp_path / "nope")
     assert p["attribution"] is None
+
+
+def _attr(tmp_path, *, cand_dir="", base_mean=30.0):
+    d = tmp_path / "attr"
+    d.mkdir(exist_ok=True)
+    (d / "attribution.json").write_text(json.dumps({
+        "base": {"mean": base_mean, "std": 0.0},
+        "full": {"mean": 37.0, "std": 0.8},
+        "full_delta": 4.0, "best_atom_delta": 2.3, "interaction": 1.7,
+        "atoms": [{"index": 0, "path": "systemprompt.md", "label": "原子 0", "delta": 2.3}],
+        "parent_dir": "harness/base", "cand_dir": cand_dir,
+    }, ensure_ascii=False), encoding="utf-8")
+    return d
+
+
+def test_attribution_from_another_run_is_flagged(tmp_path):
+    """归因指错目录时必须在看板上标出来。
+
+    这条是踩过的坑：`--run runs/strict_veto --attr runs/attr_curve3` 拼错一次，
+    看板就变成"这条曲线第 1 轮改了什么"配着另一次跑批的归因数字，
+    两边都自洽、都带小数，肉眼看不出来。
+
+    判据是**出处**不是分数：同一棵树重测一次基线就会差一分多（32.00 → 33.33），
+    按分数判会把合法的重测误判成挂错目录。
+    """
+    run = _curve(tmp_path, rounds=[_rnd(1, 33.0, "accepted")])
+    inside = build_payload(run, tasks_path=_tasks(tmp_path),
+                           attr_dir=_attr(tmp_path, cand_dir=str(run / "round1")))
+    assert inside["attribution"]["_match"] is True
+
+    other = tmp_path / "attr2"
+    other.mkdir()
+    src = (tmp_path / "attr" / "attribution.json").read_text(encoding="utf-8")
+    (other / "attribution.json").write_text(
+        src.replace(f'"cand_dir": "{run / "round1"}"'.replace("\\", "\\\\"),
+                    f'"cand_dir": "{(tmp_path / "other_run" / "round2").as_posix()}"'),
+        encoding="utf-8")
+    bad = build_payload(run, tasks_path=_tasks(tmp_path), attr_dir=other)
+    assert bad["attribution"]["_match"] is False, "另一条跑批的归因不该认作本条曲线"
+
+
+def test_attribution_without_provenance_is_unknown_not_wrong(tmp_path):
+    """老文件没有出处字段：不提示，也不假装匹配。"""
+    run = _curve(tmp_path, rounds=[_rnd(1, 33.0, "accepted")])
+    d = _attr(tmp_path)
+    p = d / "attribution.json"
+    data = json.loads(p.read_text(encoding="utf-8"))
+    data.pop("cand_dir")
+    data.pop("parent_dir")
+    p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    assert build_payload(run, tasks_path=_tasks(tmp_path),
+                         attr_dir=d)["attribution"]["_match"] is None

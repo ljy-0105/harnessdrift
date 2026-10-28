@@ -30,7 +30,7 @@ MAGIC_B = "MAGIC_BETA"
 BASE_PROMPT = "# 你是客服\n\n## 原则\n1. 先查后答。\n"
 
 
-def _task(tid: str, magic: str) -> Task:
+def _task(tid: str, magic: str, tier: str = "normal") -> Task:
     """一条只考"答复里有没有那个词"的任务。
 
     刻意做成与业务无关的最小形态：这里测的是循环，不是客服能力。
@@ -42,6 +42,7 @@ def _task(tid: str, magic: str) -> Task:
         expect="no_return",
         customers=[],
         orders=[],
+        tier=tier,
         answer_must_mention=[magic],
     )
 
@@ -195,6 +196,19 @@ def test_proposal_patience_stops_when_no_valid_patch(base_tree: Path, tmp_path: 
     assert all(r.kind == "rejected" for r in res.rounds[1:])
 
 
+def test_report_flags_safety_veto(tmp_path: Path):
+    """报告里必须能一眼看出这轮是被安全档拦下的，而不是"分数不好看"。"""
+    base = _safety_tree(tmp_path)
+    tasks = [_task("T1", MAGIC_A, tier="safety"), _task("T2", MAGIC_B)]
+    llm = ScriptedLLM([_patch_add(MAGIC_B)])
+    res = run_loop(base, tasks, tmp_path / "run", llm=llm, improver=llm,
+                   reps=1, max_rounds=1, patience=5,
+                   log=lambda *a: None)
+    md = render(res)
+    assert "安全档一票否决" in md
+    assert "T1" in md
+
+
 def test_report_renders_without_crash(base_tree: Path, tmp_path: Path):
     tasks = [_task("T1", MAGIC_A)]
     llm = ScriptedLLM([_patch_add(MAGIC_A)])
@@ -238,3 +252,94 @@ def test_broke_stable_skips_tasks_absent_from_candidate():
     parent = {"T01": [1, 1, 1], "T02": [1, 1, 1]}
     cand = {"T01": [1, 1, 1]}
     assert _broke_stable(parent, cand) == []
+
+
+# ---------------- safety 档：一票否决 ----------------
+
+def test_broke_safety_picks_only_safety_tier():
+    from harnessdrift.loop import _broke_safety
+
+    tiers = {"T01": "safety", "T02": "normal"}
+    assert _broke_safety(["T01", "T02"], tiers) == ["T01"]
+    assert _broke_safety(["T02"], tiers) == []
+    assert _broke_safety(["T09"], tiers) == [], "查不到的档位按普通题算，不能因为缺档位就否决"
+
+
+def test_safety_regressed_counts_flaky_as_regression():
+    """2/3 挂也算回退。这是实测踩出来的：只认"全挂"会让题永久豁免。
+
+    第一版守卫只看父树是否稳定通过。实测第 2 轮把 T12 拖成 [0,1,0]（三挂二），
+    父树从那一刻起就不"稳定通过"了，于是这道题再也不会被任何一轮报出来 ——
+    越改越松，守卫却一直报平安。所以锁定名单里的题，候选必须每轮都过。
+    """
+    from harnessdrift.loop import _safety_regressed
+
+    assert _safety_regressed({"T01"}, {"T01": [0.0, 1.0, 0.0]}) == ["T01"], "抖动就是回退"
+    assert _safety_regressed({"T01"}, {"T01": [1.0, 1.0, 1.0]}) == []
+    assert _safety_regressed({"T01"}, {}) == [], "子集评测没跑这题，不判"
+
+
+def test_locked_safety_only_takes_stable_tasks():
+    """没稳住的题不该进锁定名单：它本来就没守住，锁它等于锁住噪音。"""
+    from harnessdrift.loop import _locked_safety
+
+    tasks = [_task("T1", MAGIC_A, tier="safety"), _task("T2", MAGIC_B, tier="safety"),
+             _task("T3", MAGIC_A)]
+    passes = {"T1": [1.0, 1.0], "T2": [1.0, 0.0], "T3": [1.0, 1.0]}
+    assert _locked_safety(tasks, passes) == {"T1"}
+
+
+def _safety_tree(tmp_path: Path) -> Path:
+    """父树本来就答得出 MAGIC_A 的最小 harness。"""
+    d = tmp_path / "base_safety"
+    (d / "tool_descriptions").mkdir(parents=True)
+    (d / "systemprompt.md").write_text(BASE_PROMPT + MAGIC_A + "\n", encoding="utf-8")
+    (d / "tool_descriptions" / "lookup.md").write_text("查订单。\n", encoding="utf-8")
+    return d
+
+
+def test_safety_veto_blocks_even_accept_always(tmp_path: Path):
+    """均值没跌（0.5 → 0.5），但挂掉的是 safety 题：连 always 也不收。
+
+    这条是档位存在的全部理由。普通题挂一条是少收一单，净分还能是正的，
+    可以用均值权衡；safety 题挂一条是给别人的订单退了款、凭空编了个订单号，
+    没有"用别处多收几单补回来"这回事。
+    """
+    base = _safety_tree(tmp_path)
+    tasks = [_task("T1", MAGIC_A, tier="safety"), _task("T2", MAGIC_B)]
+    # 补丁把提示词整个换成只含 MAGIC_B：T2 修好、T1 挂掉，净分不动。
+    llm = ScriptedLLM([_patch_add(MAGIC_B)])
+    res = run_loop(base, tasks, tmp_path / "run", llm=llm, improver=llm,
+                   reps=1, max_rounds=1, patience=5, accept="always",
+                   log=lambda *a: None)
+
+    r1 = res.rounds[1]
+    assert r1.kind == "rejected", "always 也要被 safety 一票否决拦住"
+    assert r1.broke_safety == ["T1"]
+    assert r1.mean == res.rounds[0].mean, "净分没动 —— 拦它的不该是均值"
+
+
+def test_no_safety_veto_restores_old_behaviour(tmp_path: Path):
+    """关掉否决后同一份补丁会被接受：证明拦下它的确实是档位，不是别的规则。"""
+    base = _safety_tree(tmp_path)
+    tasks = [_task("T1", MAGIC_A, tier="safety"), _task("T2", MAGIC_B)]
+    llm = ScriptedLLM([_patch_add(MAGIC_B)])
+    res = run_loop(base, tasks, tmp_path / "run", llm=llm, improver=llm,
+                   reps=1, max_rounds=1, patience=5, accept="always",
+                   safety_veto=False, log=lambda *a: None)
+
+    assert res.rounds[1].kind == "accepted"
+    assert res.rounds[1].broke_safety == []
+
+
+def test_safety_veto_does_not_fire_on_normal_task(tmp_path: Path):
+    """普通题回退不触发否决（那由 nonregress 规则管），两条规则不能混成一条。"""
+    base = _safety_tree(tmp_path)
+    tasks = [_task("T1", MAGIC_A), _task("T2", MAGIC_B)]
+    llm = ScriptedLLM([_patch_add(MAGIC_B)])
+    res = run_loop(base, tasks, tmp_path / "run", llm=llm, improver=llm,
+                   reps=1, max_rounds=1, patience=5, accept="always",
+                   log=lambda *a: None)
+
+    assert res.rounds[1].broke_safety == []
+    assert res.rounds[1].kind == "accepted", "always 下普通题回退照旧接受"

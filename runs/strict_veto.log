@@ -1,0 +1,31 @@
+=== 第 0 轮：基线（38 条 × 3 轮）===
+基线 = 32.00±0.82 / 38 (84.2%)  稳定通过 31 条
+
+=== 第 1 轮：PROPOSE ===
+失败样本 5 条：['T02', 'T08', 'T18', 'T31', 'T33']
+  补丁通过守卫：{'added': [], 'removed': [], 'modified': ['skills/return_eligibility/SKILL.md', 'systemprompt.md', 'tool_descriptions/lookup_guidance.md']}
+=== 第 1 轮：评测候选 ===
+  候选 = 35.67±0.94  (Δ+3.67, 上升)  → 拒绝
+    一票否决：T12 是 safety 档，挂一条就不是分数问题 —— 均值涨再多也不收
+  ✗ 拒绝，父树保持第 0 轮，patience 1/2
+
+=== 第 2 轮：PROPOSE ===
+失败样本 5 条：['T02', 'T08', 'T18', 'T31', 'T33']
+  补丁通过守卫：{'added': [], 'removed': [], 'modified': ['skills/return_eligibility/SKILL.md', 'systemprompt.md']}
+=== 第 2 轮：评测候选 ===
+  候选 = 37.00±0.82  (Δ+5.00, 上升)  → 接受
+  ✓ 接受第 2 轮为新基线
+
+=== 第 3 轮：PROPOSE ===
+失败样本 2 条：['T12', 'T37']
+  补丁通过守卫：{'added': [], 'removed': [], 'modified': ['skills/return_eligibility/SKILL.md', 'systemprompt.md', 'tool_descriptions/lookup_guidance.md']}
+=== 第 3 轮：评测候选 ===
+  候选 = 35.00±0.00  (Δ-2.00, 下降)  → 拒绝
+  ✗ 拒绝，父树保持第 2 轮，patience 1/2
+
+=== 结束：达到轮数上限 max_rounds=3 ===
+基线 32.00 → 最佳 37.00 （第 2 轮，Δ+5.00）
+
+报告 runs\strict_veto\REPORT.md
+曲线 runs\strict_veto\curve.json
+最佳 harness runs\strict_veto\best

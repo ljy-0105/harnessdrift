@@ -1,0 +1,75 @@
+{
+  "base": {
+    "mean": 33.3333,
+    "std": 0.4714
+  },
+  "full": {
+    "mean": 36.6667,
+    "std": 1.2472,
+    "ok": true
+  },
+  "reps": 3,
+  "n_tasks": 38,
+  "full_delta": 3.3333,
+  "best_atom_delta": 3.0,
+  "interaction": 0.3333,
+  "atoms": [
+    {
+      "index": 0,
+      "path": "skills/return_eligibility/SKILL.md",
+      "kind": "modify",
+      "label": "5. 质量问题、发错货、少件漏发不受窗口限制，且运费由平台承担",
+      "parent_span": [
+        8,
+        9
+      ],
+      "mean": 34.0,
+      "std": 0.8165,
+      "delta": 0.6667,
+      "verdict": "测不出"
+    },
+    {
+      "index": 1,
+      "path": "systemprompt.md",
+      "kind": "modify",
+      "label": "- **客户在要求**（\"我要退\"、\"帮我退掉\"、\"我要换一件大码\"、\"退给我\"",
+      "parent_span": [
+        19,
+        21
+      ],
+      "mean": 34.3333,
+      "std": 1.2472,
+      "delta": 1.0,
+      "verdict": "测不出"
+    },
+    {
+      "index": 2,
+      "path": "systemprompt.md",
+      "kind": "modify",
+      "label": "查完就办：不要停在\"要不要办\"",
+      "parent_span": [
+        29,
+        29
+      ],
+      "mean": 36.3333,
+      "std": 0.4714,
+      "delta": 3.0,
+      "verdict": "有效"
+    },
+    {
+      "index": 3,
+      "path": "systemprompt.md",
+      "kind": "modify",
+      "label": "**客户已经提供了开箱视频/照片时，直接调用 `file_damage_clai",
+      "parent_span": [
+        55,
+        55
+      ],
+      "mean": 35.0,
+      "std": 0.8165,
+      "delta": 1.6667,
+      "verdict": "有效"
+    }
+  ],
+  "notes": []
+}
