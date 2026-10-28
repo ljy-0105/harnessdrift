@@ -110,42 +110,85 @@ def evaluate_tree(
     reps: int = 1,
     verbose: bool = False,
     on_task: Callable[[str, int, int, float], None] | None = None,
+    workers: int = 1,
 ) -> EvalResult:
     """跑 reps 轮，每轮把 tasks 全跑一遍。
 
     on_task(task_id, rep, turn?, value) 用来给 CLI 打进度，避免长时间无输出。
+
+    ``workers > 1`` 时按 (题, 轮) 并发。这是一次纯 IO 等待的并行
+    （每条任务就是若干次模型调用 + 本地工具），所以线程够用；
+    并发单元是"一条任务的一轮"，不是因为——同一道题的两轮必须独立，
+    否则一轮的上下文会污染下一轮。
+
+    并发不改分数：结果按 (rep, 题序) 落回预分配的槽位，
+    同一棵树同样的回答必须算出同样的 passes 顺序。
     """
     res = EvalResult(n_tasks=len(tasks), reps=reps)
     res.passes = {t.id: [] for t in tasks}
     started = time.time()
     before = llm.snapshot_usage() if hasattr(llm, "snapshot_usage") else None
 
-    for rep in range(reps):
-        for t in tasks:
-            toolkit = t.build_toolkit()
-            try:
-                r = run_task(tree, t.message, toolkit, llm, verbose=verbose)
-            except Exception as e:  # noqa: BLE001
-                # 单条崩掉不能带停整个评测：那一轮已被污染的分数还不如显式记 0。
-                res.errors[t.id] = f"{type(e).__name__}: {e}"
-                res.passes[t.id].append(0.0)
-                res.last_failed[t.id] = [f"ERROR {type(e).__name__}"]
-                if on_task:
-                    on_task(t.id, rep, len(tasks), 0.0)
-                continue
+    jobs = [(rep, idx, t) for rep in range(reps) for idx, t in enumerate(tasks)]
+    slots: list[tuple[float, Any, Any, Any] | None] = [None] * len(jobs)
 
-            score = judge(t, r, toolkit)
-            res.passes[t.id].append(score.value)
+    def _one(job: tuple[int, int, Task]):
+        """跑一条，返回 (分数, RunResult, TaskScore, toolkit) 或异常。"""
+        rep, idx, t = job
+        toolkit = t.build_toolkit()
+        r = run_task(tree, t.message, toolkit, llm, verbose=verbose)
+        return judge(t, r, toolkit), r, toolkit
+
+    def _record(job, outcome) -> None:
+        rep, idx, t = job
+        if isinstance(outcome, BaseException):
+            # 单条崩掉不能带停整个评测：那一轮已被污染的分数还不如显式记 0。
+            slots[idx * reps + rep] = (0.0, None, None, outcome)
+            return
+        score, r, toolkit = outcome
+        slots[idx * reps + rep] = (score.value, r, score, toolkit)
+
+    if workers <= 1:
+        for job in jobs:
+            try:
+                _record(job, _one(job))
+            except Exception as e:  # noqa: BLE001
+                _record(job, e)
+            if on_task:
+                on_task(job[2].id, job[0], len(tasks), slots[job[1] * reps + job[0]][0])
+    else:
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futs = {pool.submit(_one, job): job for job in jobs}
+            for fut in as_completed(futs):
+                job = futs[fut]
+                try:
+                    outcome = fut.result()
+                except Exception as e:  # noqa: BLE001
+                    outcome = e
+                _record(job, outcome)
+                if on_task:
+                    on_task(job[2].id, job[0], len(tasks),
+                            slots[job[1] * reps + job[0]][0])
+
+    # 汇总：只在主线程里改 res，避免共享字典的并发写
+    for rep in range(reps):
+        for idx, t in enumerate(tasks):
+            value, r, score, extra = slots[idx * reps + rep]  # type: ignore[misc]
+            res.passes[t.id].append(value)
+            if isinstance(extra, BaseException):
+                res.errors[t.id] = f"{type(extra).__name__}: {extra}"
+                res.last_failed[t.id] = [f"ERROR {type(extra).__name__}"]
+                continue
             if score.failed:
                 res.last_failed[t.id] = [c.name for c in score.failed]
                 for c in score.failed:
                     res.failure_hist[c.name] = res.failure_hist.get(c.name, 0) + 1
-            if on_task:
-                on_task(t.id, rep, len(tasks), score.value)
             # raw 只留最后一轮：改进器看的是"现在的树怎么错的"，
             # 前面几轮的失败已经被这一轮的代表掉了。
             if rep == reps - 1:
-                res.raw.append((t, r, score, toolkit))
+                res.raw.append((t, r, score, extra))
 
     res.elapsed_s = time.time() - started
     if before is not None:  # 注意是 None 不是空字典：第一次评测时 before 就是 {}

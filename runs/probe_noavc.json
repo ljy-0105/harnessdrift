@@ -1,0 +1,829 @@
+{
+  "when": "2026-10-28T13:13:47.878684+00:00",
+  "harness": "C:/Users/HP/AppData/Local/Temp/probe_noavc",
+  "harness_hash": "7077b6e55bb06036",
+  "model": "deepseek-chat",
+  "n_tasks": 50,
+  "reps": 3,
+  "mean": 46.0,
+  "std": 0.8165,
+  "pass_rate": 0.92,
+  "solved": 44,
+  "elapsed_s": 54.2,
+  "passes": {
+    "T01": [
+      1,
+      1,
+      1
+    ],
+    "T02": [
+      1,
+      1,
+      1
+    ],
+    "T03": [
+      1,
+      1,
+      1
+    ],
+    "T04": [
+      1,
+      1,
+      1
+    ],
+    "T05": [
+      1,
+      1,
+      1
+    ],
+    "T06": [
+      1,
+      1,
+      1
+    ],
+    "T07": [
+      1,
+      1,
+      1
+    ],
+    "T08": [
+      1,
+      1,
+      1
+    ],
+    "T09": [
+      1,
+      1,
+      1
+    ],
+    "T10": [
+      1,
+      1,
+      1
+    ],
+    "T11": [
+      1,
+      1,
+      1
+    ],
+    "T12": [
+      1,
+      1,
+      1
+    ],
+    "T13": [
+      1,
+      1,
+      1
+    ],
+    "T14": [
+      0,
+      0,
+      1
+    ],
+    "T15": [
+      0,
+      1,
+      1
+    ],
+    "T16": [
+      1,
+      1,
+      1
+    ],
+    "T17": [
+      1,
+      1,
+      1
+    ],
+    "T18": [
+      1,
+      1,
+      1
+    ],
+    "T19": [
+      1,
+      1,
+      1
+    ],
+    "T20": [
+      1,
+      1,
+      1
+    ],
+    "T21": [
+      1,
+      1,
+      1
+    ],
+    "T22": [
+      1,
+      1,
+      1
+    ],
+    "T23": [
+      1,
+      1,
+      1
+    ],
+    "T24": [
+      1,
+      1,
+      1
+    ],
+    "T25": [
+      1,
+      1,
+      1
+    ],
+    "T26": [
+      1,
+      1,
+      1
+    ],
+    "T27": [
+      1,
+      1,
+      1
+    ],
+    "T28": [
+      1,
+      1,
+      1
+    ],
+    "T29": [
+      1,
+      1,
+      1
+    ],
+    "T30": [
+      1,
+      1,
+      1
+    ],
+    "T31": [
+      1,
+      1,
+      0
+    ],
+    "T32": [
+      1,
+      1,
+      1
+    ],
+    "T33": [
+      1,
+      1,
+      1
+    ],
+    "T34": [
+      1,
+      1,
+      1
+    ],
+    "T35": [
+      1,
+      1,
+      1
+    ],
+    "T36": [
+      1,
+      1,
+      1
+    ],
+    "T37": [
+      0,
+      1,
+      0
+    ],
+    "T38": [
+      1,
+      1,
+      1
+    ],
+    "H01": [
+      0,
+      0,
+      0
+    ],
+    "H02": [
+      1,
+      1,
+      1
+    ],
+    "H03": [
+      1,
+      1,
+      1
+    ],
+    "H04": [
+      1,
+      1,
+      1
+    ],
+    "H05": [
+      1,
+      1,
+      1
+    ],
+    "H06": [
+      1,
+      1,
+      1
+    ],
+    "H07": [
+      1,
+      1,
+      1
+    ],
+    "H08": [
+      0,
+      0,
+      0
+    ],
+    "H09": [
+      1,
+      1,
+      1
+    ],
+    "H10": [
+      1,
+      1,
+      1
+    ],
+    "H11": [
+      1,
+      1,
+      1
+    ],
+    "H12": [
+      1,
+      1,
+      1
+    ]
+  },
+  "failure_hist": {
+    "期望动作=return_created": 3,
+    "调用了 create_return": 3,
+    "期望动作=clarify": 3,
+    "没有调用 create_return": 3,
+    "没有调用 file_damage_claim": 3,
+    "期望动作=escalated": 1,
+    "调用了 escalate_to_human": 1,
+    "没有说「为您办理退货」": 1,
+    "确实在追问": 1,
+    "答复提到了「投诉」": 1
+  },
+  "flaky": {
+    "T14": [
+      0.0,
+      0.0,
+      1.0
+    ],
+    "T15": [
+      0.0,
+      1.0,
+      1.0
+    ],
+    "T31": [
+      1.0,
+      1.0,
+      0.0
+    ],
+    "T37": [
+      0.0,
+      1.0,
+      0.0
+    ]
+  },
+  "stable_fail": [
+    "H01",
+    "H08"
+  ],
+  "errors": {},
+  "tokens": {
+    "completion_tokens": 31029,
+    "prompt_tokens": 1075431,
+    "total_tokens": 1106460,
+    "prompt_cache_hit_tokens": 997610,
+    "prompt_cache_miss_tokens": 77821
+  },
+  "tasks": [
+    {
+      "task_id": "T01",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T02",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T03",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T04",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T05",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T06",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T07",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T08",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T09",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T10",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T11",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T12",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T13",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T14",
+      "passes": [
+        0.0,
+        0.0,
+        1.0
+      ],
+      "mean": 0.3333,
+      "last_failed": [
+        "期望动作=return_created",
+        "调用了 create_return"
+      ]
+    },
+    {
+      "task_id": "T15",
+      "passes": [
+        0.0,
+        1.0,
+        1.0
+      ],
+      "mean": 0.6667,
+      "last_failed": [
+        "期望动作=escalated",
+        "调用了 escalate_to_human"
+      ]
+    },
+    {
+      "task_id": "T16",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T17",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T18",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T19",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T20",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T21",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T22",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T23",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T24",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T25",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T26",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T27",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T28",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T29",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T30",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T31",
+      "passes": [
+        1.0,
+        1.0,
+        0.0
+      ],
+      "mean": 0.6667,
+      "last_failed": [
+        "期望动作=return_created",
+        "调用了 create_return"
+      ]
+    },
+    {
+      "task_id": "T32",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T33",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T34",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T35",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T36",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "T37",
+      "passes": [
+        0.0,
+        1.0,
+        0.0
+      ],
+      "mean": 0.3333,
+      "last_failed": [
+        "答复提到了「投诉」"
+      ]
+    },
+    {
+      "task_id": "T38",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "H01",
+      "passes": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "last_failed": [
+        "期望动作=clarify",
+        "没有调用 create_return"
+      ]
+    },
+    {
+      "task_id": "H02",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "H03",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "H04",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "H05",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "H06",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "H07",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "H08",
+      "passes": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "mean": 0.0,
+      "last_failed": [
+        "没有调用 file_damage_claim"
+      ]
+    },
+    {
+      "task_id": "H09",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "H10",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "H11",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    },
+    {
+      "task_id": "H12",
+      "passes": [
+        1.0,
+        1.0,
+        1.0
+      ],
+      "mean": 1.0,
+      "last_failed": []
+    }
+  ]
+}

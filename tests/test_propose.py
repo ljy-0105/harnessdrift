@@ -215,3 +215,35 @@ def test_truncation_retries_with_small_patch_before_giving_up(tmp_path: Path):
     assert "小文件" in llm.calls[1], "重试要明确要求换小补丁"
     assert prop.applied, "换成小补丁后应当通过"
     assert "tool_descriptions/refund_window.md" in prop.changed["added"]
+
+
+def test_prompt_warns_about_what_must_not_break():
+    """归因喂进提案端：稳定通过 + 安全档 + 历史踩雷，三样都要出现在提示里。
+
+    这三样都来自"什么现在是对的"，而失败样本只说得出"什么现在是错的"。
+    少了它们，改进器会拿全局规则去修局部问题 —— T12 就是这么坏的。
+    """
+    from harnessdrift.propose import FailedSample, build_improver_prompt
+
+    tree = {"systemprompt.md": "# 你是客服\n"}
+    fail = FailedSample(task_id="T02", message="要退货", expect_label="期望动作=return_created",
+                        failed_checks=["调用了 create_return"], tool_calls=["lookup_order"],
+                        final_answer="好的")
+    p = build_improver_prompt(tree, [fail], stable_pass=["T01", "T12", "T27"],
+                              safety_ids=["T12", "T27"],
+                              banned=["第 1 轮改了 systemprompt.md 之后，T12 从稳定通过变成稳定挂掉，这一轮因此被拒。"])
+    assert "不许弄坏" in p
+    assert "T01, T12, T27" in p
+    assert "T12, T27 是**安全档**" in p
+    assert "一票否决" in p
+    assert "第 1 轮改了 systemprompt.md" in p
+    # 失败样本本身仍然要在，不然就变成另一种信息缺失
+    assert "【T02】" in p
+
+
+def test_placebo_prompt_has_no_such_warnings():
+    """对照组不能偷偷享受这些提示 —— 否则安慰剂组不再是对照组。"""
+    from harnessdrift.propose import build_placebo_prompt
+
+    p = build_placebo_prompt({"systemprompt.md": "# 你是客服\n"})
+    assert "不许弄坏" not in p and "安全档" not in p

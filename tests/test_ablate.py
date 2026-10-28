@@ -90,7 +90,7 @@ def _fake_eval(score_map: dict[str, float]):
     """替代 evaluate_tree：按树的 systemprompt 内容查分数。"""
     from harnessdrift.runner import EvalResult
 
-    def _f(tree, tasks, llm, reps=1, verbose=False):  # noqa: ANN001
+    def _f(tree, tasks, llm, reps=1, verbose=False, **kw):  # noqa: ANN001, ANN003
         s = score_map.get(tree["systemprompt.md"], 0.0)
         return EvalResult(n_tasks=1, reps=reps, passes={"T01": [s]})
 

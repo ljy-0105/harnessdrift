@@ -18,6 +18,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass, field
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any, Iterable
 
@@ -123,10 +124,45 @@ IMPROVER_SYSTEM = """你是一个客服 agent 的 harness 工程师。
 """
 
 
-def build_improver_prompt(tree: dict[str, str], failures: list[FailedSample]) -> str:
+def build_improver_prompt(tree: dict[str, str], failures: list[FailedSample], *,
+                          stable_pass: Sequence[str] = (),
+                          safety_ids: Sequence[str] = (),
+                          banned: Sequence[str] = ()) -> str:
+    """拼改进器输入。
+
+    stable_pass / safety_ids / banned 这三样是从**归因**里捞出来的，不是从失败
+    样本里捞出来的。它们回答的是一个失败样本永远回答不了的问题：
+    "这次改动会踩坏什么？"
+
+    实测代价：第一版改进器只看失败样本，第 1 轮涨了 4.33 分，同时把 T12
+    （安全档）从稳定通过改成稳定挂掉 —— 它为了修退款流程，在提示词里写了
+    "客户说了要退就直接办"，而这句在一个没有订单号、也可能是诈骗的单子上
+    就是错的。失败样本里没有 T12，因为 T12 当时是过的。
+    """
     parts = ["## 当前提示词目录\n"]
     for path in sorted(tree):
         parts.append(f"### FILE {path}\n```\n{tree[path]}\n```\n")
+
+    if stable_pass or safety_ids:
+        parts.append("\n## 现在做得对、不许弄坏的部分\n")
+        if stable_pass:
+            parts.append(
+                f"这些任务现在是**稳定通过**的：{', '.join(stable_pass)}\n"
+                "它们不在失败样本里，所以你从样本上看不出自己会不会踩到它们。"
+                "改动请尽量收窄触发条件（新建小文件 + 说明适用场景），"
+                "不要用「所有情况都这样」的全局规则去修局部问题。\n"
+            )
+        if safety_ids:
+            parts.append(
+                f"其中 {', '.join(safety_ids)} 是**安全档**：这几条一旦挂掉，"
+                "整轮改进直接作废（一票否决），涨多少分都不收。\n"
+            )
+
+    if banned:
+        parts.append("\n## 已经证明有害的写法\n")
+        for b in banned:
+            parts.append(f"- {b}\n")
+
     parts.append(f"\n## 失败案例（{len(failures)} 条）\n")
     for f in failures:
         parts.append(f.render() + "\n")
@@ -134,6 +170,40 @@ def build_improver_prompt(tree: dict[str, str], failures: list[FailedSample]) ->
         "\n## 你的任务\n"
         f"这 {len(failures)} 条失败里，大部分是同一个模式的重复。先找出共同根因，"
         "再给出最小改动。只输出补丁。\n"
+    )
+    return "\n".join(parts)
+
+
+PLACEBO_SYSTEM = """你是一个客服 agent 的 harness 工程师。
+
+现在做一个**对照实验**：这次你不许看失败样本，也不许针对任何具体缺陷改进。
+请给这棵提示词目录补一条**与退款/退货/价保/物流政策完全无关**的通用说明，
+比如：怎么称呼客户、多轮对话时怎么承接上一句、回复的段落怎么排版、
+不确定信息时怎么措辞。写成一个小文件。
+
+规则：
+- 只输出补丁，格式：
+    ### ADD tool_descriptions/<新名字>.md
+    <用 4 个空格缩进的内容>
+- 不要碰 systemprompt.md，不要提到退货、退款、价保、运费、保修、发票等业务条款。
+- 内容要具体、可执行，别写"要礼貌"这种空话；但也不要试图修任何 bug。
+"""
+
+
+def build_placebo_prompt(tree: dict[str, str]) -> str:
+    """安慰剂组的输入：只有当前目录，没有失败样本。
+
+    这不是"随便改改"的偷懒版 —— 它是对照组的全部意义所在：
+    如果一条与失败无关的补丁也能让均分上涨，那"上涨"这个观测量本身
+    就不可信，之前所有 +X 的结论都要打折。
+    """
+    parts = ["## 当前提示词目录\n"]
+    for path in sorted(tree):
+        parts.append(f"### FILE {path}\n```\n{tree[path]}\n```\n")
+    parts.append(
+        "\n## 你的任务\n"
+        "补一条与业务政策无关的通用说明（新建 tool_descriptions/ 下的一个小文件）。"
+        "只输出补丁。\n"
     )
     return "\n".join(parts)
 
@@ -170,6 +240,10 @@ def propose(
     *,
     max_repair: int = 2,
     extra_context: str = "",
+    placebo: bool = False,
+    stable_pass: Sequence[str] = (),
+    safety_ids: Sequence[str] = (),
+    banned: Sequence[str] = (),
 ) -> Proposal:
     """生成补丁 → 校验作用域 → 应用到新目录。
 
@@ -180,12 +254,22 @@ def propose(
     失败样本会提出同一份补丁，循环就会原地空转到 patience 耗尽 ——
     看起来"跑了 5 轮"，其实只有 1 个不同的想法。
     """
-    prompt = build_improver_prompt(parent_tree, failures)
+    if placebo:
+        # 对照组：失败样本一律不传，连"有几条失败"都不告诉它。
+        prompt = build_placebo_prompt(parent_tree)
+        system = PLACEBO_SYSTEM
+        failures = []
+    else:
+        prompt = build_improver_prompt(parent_tree, failures,
+                                       stable_pass=stable_pass,
+                                       safety_ids=safety_ids,
+                                       banned=banned)
+        system = IMPROVER_SYSTEM
     if extra_context:
         prompt = f"{prompt}\n\n## 已经试过但被拒绝的方向\n{extra_context}\n"
 
     messages: list[dict[str, str]] = [
-        {"role": "system", "content": IMPROVER_SYSTEM},
+        {"role": "system", "content": system},
         {"role": "user", "content": prompt},
     ]
     reply = llm.chat(messages)

@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import os
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -72,35 +73,42 @@ class LLM:
         # 累计用量：evaluate_tree 在每次评测前后取差，就能把"这一轮花了多少 token"
         # 落进 curve.json。不加这个的话，跑完只知道涨了几分，不知道花了多少钱。
         self.usage_total: dict[str, int] = {}
+        # 评测是并发的：多个线程同时 +1 会丢计数（+= 不是原子操作），
+        # 所以记账和设备初始化都要过这把锁。
+        self._lock = threading.Lock()
 
     def snapshot_usage(self) -> dict[str, int]:
-        return dict(self.usage_total)
+        with self._lock:
+            return dict(self.usage_total)
 
     def usage_since(self, before: dict[str, int]) -> dict[str, int]:
         """返回 before 之后新增的用量（只算增量，不含历史）。"""
-        return {k: v - before.get(k, 0) for k, v in self.usage_total.items()
-                if v - before.get(k, 0)}
+        with self._lock:
+            return {k: v - before.get(k, 0) for k, v in self.usage_total.items()
+                    if v - before.get(k, 0)}
 
     def _account(self, usage: dict[str, int]) -> None:
-        for k, v in (usage or {}).items():
-            if isinstance(v, int):
-                self.usage_total[k] = self.usage_total.get(k, 0) + v
+        with self._lock:
+            for k, v in (usage or {}).items():
+                if isinstance(v, int):
+                    self.usage_total[k] = self.usage_total.get(k, 0) + v
 
     @property
     def client(self):
-        if self._client is None:
-            try:
-                from openai import OpenAI
-            except ImportError as e:  # pragma: no cover
-                raise RuntimeError(
-                    "需要 openai 包：./.venv/Scripts/python.exe -m pip install openai"
-                ) from e
-            if not self.api_key:
-                raise RuntimeError(
-                    "LLM_API_KEY 为空。把 key 写进 harnessdrift/.env（参考 .env.example）"
-                )
-            self._client = OpenAI(api_key=self.api_key, base_url=self.base_url)
-        return self._client
+        with self._lock:
+            if self._client is None:
+                try:
+                    from openai import OpenAI
+                except ImportError as e:  # pragma: no cover
+                    raise RuntimeError(
+                        "需要 openai 包：./.venv/Scripts/python.exe -m pip install openai"
+                    ) from e
+                if not self.api_key:
+                    raise RuntimeError(
+                        "LLM_API_KEY 为空。把 key 写进 harnessdrift/.env（参考 .env.example）"
+                    )
+                self._client = OpenAI(api_key=self.api_key, base_url=self.base_url)
+            return self._client
 
     def chat(
         self,

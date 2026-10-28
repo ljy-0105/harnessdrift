@@ -22,7 +22,9 @@ def _one_task():
 class _FakeLLM(LLM):
     def __init__(self) -> None:
         # 不调父类 __init__：那条路会读 env / 建 client，测试里都不需要
+        import threading
         self.usage_total: dict[str, int] = {}
+        self._lock = threading.Lock()
         self.calls = 0
 
     def chat(self, messages, tools=None, **kw):  # noqa: ANN001, ANN201

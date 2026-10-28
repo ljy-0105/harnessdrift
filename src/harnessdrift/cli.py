@@ -59,6 +59,7 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     ev = evaluate_tree(
         tree, tasks, llm, reps=args.repeat, verbose=args.verbose,
+        workers=getattr(args, "workers", 1),
         on_task=None if not args.verbose else (
             lambda tid, rep, total, v: print(f"[{tid}] r{rep + 1} {'PASS' if v >= 1 else 'FAIL'}")
         ),
@@ -134,8 +135,10 @@ def cmd_loop(args: argparse.Namespace) -> int:
         safety_veto=args.safety_veto,
         safety_mode=args.safety_mode,
         holdout=args.holdout,
+        placebo=args.placebo,
         max_tokens=args.max_tokens,
         budget_s=args.budget_min * 60 if args.budget_min else 0.0,
+        workers=args.workers,
         verbose=args.verbose,
     )
 
@@ -198,7 +201,7 @@ def cmd_ablate(args: argparse.Namespace) -> int:
     out_root.mkdir(parents=True, exist_ok=True)
     llm = LLM(model=args.model) if args.model else LLM()
 
-    res = ablate(parent, cand, tasks, llm, reps=args.reps,
+    res = ablate(parent, cand, tasks, llm, reps=args.reps, workers=args.workers,
                  log=lambda s: print(s, flush=True), verbose=args.verbose)
     res.parent_dir = str(Path(args.parent))
     res.cand_dir = str(Path(args.cand))
@@ -289,12 +292,15 @@ def main(argv: list[str] | None = None) -> int:
     r.add_argument("--out", default="")
     r.add_argument("--repeat", type=int, default=1,
                    help="同一棵树跑几轮。基线要报 ±，单轮数字不可信")
+    r.add_argument("--workers", type=int, default=1, help="评测并发数")
     r.set_defaults(func=cmd_run)
 
     lp = sub.add_parser("loop", help="跑完整的自改进循环，产出曲线和报告")
     _common(lp)
     lp.add_argument("--out", default="runs/loop")
     lp.add_argument("--reps", type=int, default=3, help="每轮每题重复几次（估抖动）")
+    lp.add_argument("--workers", type=int, default=1,
+                    help="评测并发数（一条题自己就是若干次模型调用，串行纯等）")
     lp.add_argument("--max-rounds", type=int, default=5)
     lp.add_argument("--patience", type=int, default=2, help="连续几轮无实质改进就停")
     lp.add_argument("--proposal-patience", type=int, default=2,
@@ -306,6 +312,10 @@ def main(argv: list[str] | None = None) -> int:
     lp.add_argument("--max-tokens", type=int, default=0,
                     help="token 预算（求解+改进累计），超出即停；0 表示不限。"
                          "每轮开始与评测前各查一次 —— 评测是最贵的一步")
+    lp.add_argument("--placebo", action="store_true",
+                    help="安慰剂对照组：失败样本一律不进提案端，只要求补一条"
+                         "与业务无关的通用说明。配合 --accept always 用，"
+                         "看的就是「没有改进信号时曲线会不会自己往上走」")
     lp.add_argument("--holdout", action="store_true",
                     help="启用留出集：split=holdout 的题照常评测计分，"
                          "但失败样本不喂给提案端，也不参与接受决策")
@@ -329,6 +339,7 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--cand", required=True, help="候选树（通常是 runs/*/roundN）")
     ap.add_argument("--out", default="runs/attr")
     ap.add_argument("--reps", type=int, default=3, help="每个单点跑几次")
+    ap.add_argument("--workers", type=int, default=1, help="评测并发数")
     ap.add_argument("--model", default="", help="求解模型（覆盖环境变量）")
     ap.set_defaults(func=cmd_ablate)
 

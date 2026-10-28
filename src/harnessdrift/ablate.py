@@ -230,13 +230,14 @@ def ablate(
     out_root: Path | None = None,
     log: Callable[[str], None] = print,
     verbose: bool = False,
+    workers: int = 1,
 ) -> AblationResult:
     """评测父树、每个单点、全量补丁三者，算出每个原子的贡献。"""
     res = AblationResult(reps=reps, n_tasks=len(tasks))
     atoms = split_atoms(parent_tree, cand_tree)
 
     log(f"=== 基线与全量（{len(tasks)} 条 × {reps} 轮）===")
-    base_ev = evaluate_tree(parent_tree, tasks, llm, reps=reps, verbose=verbose)
+    base_ev = evaluate_tree(parent_tree, tasks, llm, reps=reps, verbose=verbose, workers=workers)
     res.base_mean, res.base_std = base_ev.mean, base_ev.std
     log(f"  父树 = {base_ev.mean:.2f}±{base_ev.std:.2f}")
 
@@ -248,7 +249,7 @@ def ablate(
         res.notes.append(f"全量补丁不可运行（{why}），未评测；单点仍逐条评测。")
         log(f"  全量 = 不可运行（{why}）")
     else:
-        full_ev = evaluate_tree(cand_tree, tasks, llm, reps=reps, verbose=verbose)
+        full_ev = evaluate_tree(cand_tree, tasks, llm, reps=reps, verbose=verbose, workers=workers)
         res.full_mean, res.full_std = full_ev.mean, full_ev.std
         log(f"  全量 = {full_ev.mean:.2f}±{full_ev.std:.2f}  (Δ{res.full_delta:+.2f})")
 
@@ -264,7 +265,7 @@ def ablate(
             res.atoms.append(AtomResult(atom, verdict=f"跳过：{why}"))
             log(f"  [{atom.index}] {atom.label[:28]} —— 跳过（{why}）")
             continue
-        ev = evaluate_tree(tree, tasks, llm, reps=reps, verbose=verbose)
+        ev = evaluate_tree(tree, tasks, llm, reps=reps, verbose=verbose, workers=workers)
         ar = AtomResult(atom, mean=ev.mean, std=ev.std, delta=ev.mean - base_ev.mean)
         ar.verdict = _verdict(ar.delta, base_ev.std, ev.std)
         res.atoms.append(ar)

@@ -366,6 +366,8 @@ def run_loop(
     holdout: bool = False,
     max_tokens: int = 0,
     budget_s: float = 0.0,
+    workers: int = 1,
+    placebo: bool = False,
     verbose: bool = False,
     log=print,
 ) -> LoopResult:
@@ -401,7 +403,8 @@ def run_loop(
     assert_no_grader_verdicts(base_tree)
 
     log(f"=== 第 0 轮：基线（{len(tasks)} 条 × {reps} 轮）===")
-    base_ev = evaluate_tree(base_tree, tasks, llm, reps=reps, verbose=verbose)
+    base_ev = evaluate_tree(base_tree, tasks, llm, reps=reps, verbose=verbose,
+                            workers=workers)
     rounds: list[Round] = [_to_round(0, "base", base_dir, base_tree, base_ev,
                                      train_ids=tr, holdout_ids=ho)]
     # 基线就稳住的 safety 能力先进锁定名单；之后只增不减。
@@ -455,16 +458,35 @@ def run_loop(
                     f"{[f.task_id for f in hidden]}")
         log(f"失败样本 {len(failures)} 条：{[f.task_id for f in failures]}")
 
-        if not failures:
+        if not failures and not placebo:
             stop_reason = "没有失败样本可改进"
             break
 
+        # ---- 把归因喂进提案端（这是第 4 步实验的直接结论）----
+        # 失败样本只说得清"哪里不对"，说不清"改这里会踩坏什么"。
+        # T12 就是这么挂的：它不在失败样本里，因为它是过的。
+        tier_by_id = {t.id: t.tier for t in tasks}
+        stable = [tid for tid, xs in parent_ev.passes.items()
+                  if xs and all(x >= 1.0 for x in xs)]
+        safety_ids = [tid for tid in stable if tier_by_id.get(tid) == "safety"]
+        banned = [
+            f"第 {r.round_id} 轮改了 {', '.join(r.changed.get('modified', []) + r.changed.get('added', [])) or '提示词'}"
+            f"之后，{', '.join(r.broke)} 从稳定通过变成稳定挂掉，这一轮因此被拒。"
+            for r in rounds if r.broke and r.kind == "rejected"
+        ]
+        if stable:
+            log(f"  不许弄坏：稳定通过 {len(stable)} 条，其中安全档 {len(safety_ids)} 条")
+
         # 把之前被拒绝的补丁附在提示里，避免它原地打转
-        prop: Proposal = propose(parent_tree, failures, out_root / f"round{n}", improver)
+        prop: Proposal = propose(parent_tree, failures, out_root / f"round{n}", improver,
+                                 placebo=placebo, stable_pass=stable,
+                                 safety_ids=safety_ids, banned=banned)
         if prop.warnings and not prop.applied and tried:
             extra = "\n".join(tried[-2:])
             log(f"  补丁无效（{prop.warnings[:1]}），带上历史失败重试一次")
             prop = propose(parent_tree, failures, out_root / f"round{n}", improver,
+                           placebo=placebo, stable_pass=stable,
+                           safety_ids=safety_ids, banned=banned,
                            extra_context=f"以下补丁你已经试过并被拒绝了，不要重复：\n{extra}")
 
         if not prop.applied:
@@ -499,7 +521,8 @@ def run_loop(
             log(f"  {stop_reason}")
             shutil.rmtree(out_root / f"round{n}", ignore_errors=True)
             break
-        cand_ev = evaluate_tree(cand_tree, tasks, llm, reps=reps, verbose=verbose)
+        cand_ev = evaluate_tree(cand_tree, tasks, llm, reps=reps, verbose=verbose,
+                                workers=workers)
         # 决定收不收，只看训练列。留出列**不参与决策** —— 一旦拿它来挑补丁，
         # 它就从"看不见的考卷"变成"看得见的考卷"，过拟合只是晚一轮发生。
         p_mean = _split_score(parent_ev, train_ids) if use_holdout else parent_ev.mean
@@ -602,6 +625,8 @@ def run_loop(
             "max_tokens": max_tokens,
             "n_safety": sum(1 for t in tasks if t.tier == "safety"),
             "budget_s": budget_s,
+            "workers": workers,
+            "placebo": placebo,
             "n_tasks": len(tasks),
             "solver_model": llm.model,
             "improver_model": improver.model,
