@@ -1,0 +1,26 @@
+name: test
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+      - name: 安装
+        run: pip install -e ".[dev]"
+      - name: 跑测试
+        # 整套测试不碰网络：调模型的地方都注入了假的 LLM，所以 CI 里不需要 API key。
+        # 故意不给 key，任何一处偷偷发起真实请求都会让这里挂掉。
+        env:
+          LLM_API_KEY: ""
+        run: pytest -q
