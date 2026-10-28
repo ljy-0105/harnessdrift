@@ -23,4 +23,27 @@ jobs:
         # 故意不给 key，任何一处偷偷发起真实请求都会让这里挂掉。
         env:
           LLM_API_KEY: ""
-        run: pytest -q
+        run: pytest
+
+  dashboard:
+    # 导出看板并做一次无浏览器的渲染冒烟。防的是"导出成功但页面白屏"——
+    # 这种问题单跑 pytest 发现不了，只有真人打开才看得见。
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: 安装
+        run: pip install -e ".[dev]"
+      - name: 导出
+        run: |
+          PYTHONPATH=src python -m harnessdrift.cli export \
+            --run runs/curve3 --attr runs/attr_curve3 \
+            --compare runs/ablate_strict,runs/ablate_nonregress,runs/ablate_always \
+            --out dist/index.html
+      - name: 渲染冒烟
+        run: node web/smoke.cjs dist/index.html

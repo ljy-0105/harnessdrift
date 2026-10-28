@@ -8,7 +8,7 @@
 思路来自 [google-research/harness2](https://github.com/google-research/harness2)（Propose / Probe / Compose 骨架）
 与 [google-research/dream-rsi](https://github.com/google-research/dream-rsi)（探测器调度）。
 
-**实测：31.67 → 36.00（+4.33），38 题 × 3 次 × 5 轮，15 分钟。**
+**实测：31.67 → 36.00（+4.33），38 题 × 3 次 × 5 轮，20 分钟。**
 成本约 ¥1.4 —— 这是按实测 5,087 token/题 × 570 题估的，不是账单；早期曲线的 `curve.json`
 里还没有用量字段，`total_tokens` 是后来才接的（见「实测曲线」一节的说明）。
 
@@ -74,7 +74,7 @@ python -m venv .venv
 ./.venv/Scripts/python.exe -m pytest tests -q
 ```
 
-预期：**91 passed**（全部离线，不访问网络、不花 token）。
+预期：**101 passed**（全部离线，不访问网络、不花 token）。
 
 ```bash
 # 单次基线（先 --limit 3 验证链路）
@@ -97,6 +97,29 @@ PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli compare \
 `loop` 的产物在 `runs/curve1/`：`REPORT.md`（人看）、`curve.json`（机器读）、
 `roundN/`（每轮接受的树）、`_rejected/`（被拒候选 + 原因）、`best/`（最佳树）。
 
+## 看板
+
+![看板](docs/preview.png)
+
+`runs/` 里的东西是给愿意读代码的人看的；这一页是给不打算读代码的人看的。
+
+```bash
+PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli export \
+    --run runs/curve3 --attr runs/attr_curve3 \
+    --compare runs/ablate_strict,runs/ablate_nonregress,runs/ablate_always \
+    --out dist/index.html
+```
+
+产物是**一个自包含的 HTML**：数据内联在 `<script>` 里，没有后端、没有构建、没有 CDN，
+双击就能开（`file://` 不受 CORS 限制）。`dist/index.html` 已提交，
+也可以把 `dist/` 直接挂到 GitHub Pages。
+
+页面五块：曲线（被拒的轮次也画）、每轮补丁、38 题矩阵、原子归因、接受规则消融。
+**看板是证据的投影，不是新的数据源** —— 每个数字都能在 `runs/` 的 json 里对回出处。
+
+`web/smoke.cjs` 在 node 里跑一遍渲染逻辑（不需要浏览器），CI 里会跑，
+防止"导出成功但页面白屏"这种只有真人打开才发现的问题。
+
 ## 实测曲线
 
 两条，同一条改进器、同一个题库，差别只在接受规则。用来看"规则本身值多少钱"。
@@ -109,7 +132,7 @@ PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli compare \
      1  accepted    36.00  2.16    33/38 +     ← 修好 T02/T14/T31/T32，零回退
      2  rejected    32.33  0.47    32/38 x     ← 改坏 T07/T34
      3  rejected    34.00  0.00    33/38 x     ← 改坏 T27/T34
- 停止：patience=2（连续两轮没有实质改进）       总耗时 895s ≈ 15 分钟
+ 停止：patience=2（连续两轮没有实质改进）       总耗时 1223s ≈ 20 分钟
 ```
 
 基线 30 → 33 条稳定通过，`期望动作=return_created` 类失败从 12 次降到 1 次。
@@ -136,7 +159,7 @@ PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli compare \
 2. **第 1 轮的 +4.33 里有一部分来自抖动**。候选 std 2.16 比父树 0.47 大得多，
    说明它是"有些题开始随机过"，不是纯能力上升。报告第 5 节把抖动项单独列了出来，
    就是为了不让这部分混进结论。
-3. **15 分钟的曲线只说明闭环能跑通**，不说明改进器有多强。（token 成本已在第 4 步
+3. **20 分钟的曲线只说明闭环能跑通**，不说明改进器有多强。（token 成本已在第 4 步
    接进 `curve.json` 的 `total_tokens`，早于这一步跑的曲线没有这个字段。）
    它现在会提"往 SKILL.md 里加一条规则"这类补丁，因为失败样本就是这么喂的。
    要它提结构性改动（改工具描述、拆技能），得给它更强的失败归因。

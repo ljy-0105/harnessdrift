@@ -209,6 +209,34 @@ def cmd_compare(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_export(args: argparse.Namespace) -> int:
+    """把曲线/补丁/归因/对照打成一个自包含的 HTML 看板。"""
+    from .export import export
+
+    compare_dirs = [Path(d.strip()) for d in args.compare.split(",") if d.strip()]
+    for d in compare_dirs:
+        if not (d / "curve.json").exists():
+            print(f"对照曲线不存在：{d}", file=sys.stderr)
+            return 2
+    attr = Path(args.attr) if args.attr else None
+    if attr is not None and not (attr / "attribution.json").exists():
+        print(f"归因目录缺少 attribution.json：{attr}", file=sys.stderr)
+        return 2
+
+    payload = export(
+        Path(args.run),
+        Path(args.out),
+        tasks_path=Path(args.tasks),
+        attr_dir=attr,
+        compare_dirs=compare_dirs,
+    )
+    rounds = [r for r in payload["rounds"] if r["kind"] != "base"]
+    print(f"看板 {args.out}  （{len(payload['tasks'])} 题，{len(rounds)} 轮，"
+          f"{len(payload['curves'])} 条对照，归因={'有' if payload['attribution'] else '无'}）")
+    print(f"  双击打开：file:///{Path(args.out).resolve().as_posix()}")
+    return 0
+
+
 def cmd_init(args: argparse.Namespace) -> int:
     src = read_tree(args.harness)
     dest = Path(args.dest)
@@ -266,6 +294,14 @@ def main(argv: list[str] | None = None) -> int:
     cp.add_argument("--curves", required=True, help="逗号分隔的曲线目录")
     cp.add_argument("--out", default="runs/ABLATION.md")
     cp.set_defaults(func=cmd_compare)
+
+    ep = sub.add_parser("export", help="把一次跑批打成一个静态看板（单文件 HTML）")
+    ep.add_argument("--run", default="runs/curve3", help="曲线目录（含 curve.json）")
+    ep.add_argument("--tasks", default="data/tasks_ecommerce_after_sales.json")
+    ep.add_argument("--attr", default="", help="归因目录（含 attribution.json），可空")
+    ep.add_argument("--compare", default="", help="逗号分隔的对照曲线目录，可空")
+    ep.add_argument("--out", default="dist/index.html")
+    ep.set_defaults(func=cmd_export)
 
     s = sub.add_parser("show-prompt", help="打印某棵 harness 渲染出的系统提示")
     s.add_argument("--harness", default="harness/base")

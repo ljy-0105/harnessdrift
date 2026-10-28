@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>HarnessDrift · 自改进曲线看板</title>
+<!--
+  这个文件由 `harnessdrift export` 生成：数据内联在下面的 script 里，
+  所以双击就能看，也可以直接放 GitHub Pages。不要手改产物。
+  源模板：web/template.html
+-->
+<style>
+  :root{
+    --ink:#2b2632; --fur:#ff9f57; --coral:#ff7a59; --cream:#fff6e6; --paper:#fffaf0;
+    --muted:#9b8f86; --error:#d6455a; --online:#5fcf6a; --sky:#7fc4e8; --violet:#b7a6ff;
+    --shadow:4px 4px 0 var(--ink); --shadow-sm:3px 3px 0 var(--ink);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;min-height:100%}
+  body{
+    background:var(--cream); color:var(--ink);
+    font:14px/1.6 "Segoe UI","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+    padding:28px 20px 80px;
+  }
+  .wrap{max-width:1120px;margin:0 auto}
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:.5px}
+  h2{font-size:16px;margin:0 0 14px;display:flex;align-items:center;gap:8px}
+  h2 .n{
+    display:inline-grid;place-items:center;width:24px;height:24px;flex:0 0 24px;
+    background:var(--ink);color:var(--paper);border-radius:50%;font-size:12px;
+  }
+  .sub{color:var(--muted);margin:0 0 16px}
+  .card{
+    background:var(--paper);border:3px solid var(--ink);box-shadow:var(--shadow);
+    padding:16px 18px;margin:0 0 22px;
+  }
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 0}
+  .chip{
+    border:2px solid var(--ink);background:#fff;padding:2px 9px;font-size:12.5px;
+    font-variant-numeric:tabular-nums;
+  }
+  .chip b{font-weight:700}
+  .ok{color:#2f8f3c} .bad{color:var(--error)} .dim{color:var(--muted)}
+  .legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--muted);margin-top:10px}
+  .legend i{display:inline-block;width:10px;height:10px;border:2px solid var(--ink);margin-right:5px;vertical-align:-1px}
+  svg{display:block;width:100%;height:auto;overflow:visible}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+  @media(max-width:820px){.grid2{grid-template-columns:1fr}}
+
+  /* 轮次卡片 */
+  .round{border:3px solid var(--ink);background:var(--paper);box-shadow:var(--shadow-sm);padding:12px 14px;margin-bottom:12px}
+  .round.base{background:#fff}
+  .round.rej{border-style:dashed;opacity:.92}
+  .rhead{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .rhead .id{font-weight:800;font-size:15px}
+  .tag{border:2px solid var(--ink);padding:1px 8px;font-size:12px;font-weight:700}
+  .tag.acc{background:var(--online);color:var(--ink)}
+  .tag.rej{background:var(--error);color:#fff}
+  .tag.base{background:var(--ink);color:var(--paper)}
+  .num{font-variant-numeric:tabular-nums;font-weight:800;font-size:16px}
+  .meta{color:var(--muted);font-size:12.5px}
+  .files{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .file{border:2px solid var(--ink);background:#fff;font:12px ui-monospace,Consolas,monospace;padding:1px 6px}
+  .file.add{background:#eaf8ea} .file.del{background:#ffe9ec} .file.mod{background:#fff4e2}
+  .broke{border:2px solid var(--error);color:var(--error);font-size:12px;padding:1px 7px;background:#fff}
+  details{margin-top:10px;border-top:2px dashed #ddd0bf;padding-top:8px}
+  summary{cursor:pointer;font-size:12.5px;color:var(--muted);user-select:none}
+  pre.diff{
+    margin:8px 0 0;padding:10px 12px;background:#fffdf7;border:2px solid var(--ink);
+    font:12px/1.55 ui-monospace,Consolas,monospace;overflow:auto;max-height:340px;white-space:pre-wrap;
+  }
+  pre.diff .a{background:#eaf8ea;display:block}
+  pre.diff .d{background:#ffe9ec;display:block}
+  pre.diff .h{color:#7a6a5a;display:block;font-weight:700}
+
+  /* 题矩阵 */
+  .matrix{display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:7px}
+  .cell{
+    border:3px solid var(--ink);padding:6px 4px;text-align:center;font-size:12.5px;
+    font-weight:700;font-variant-numeric:tabular-nums;cursor:default;position:relative;
+  }
+  .cell small{display:block;font-weight:400;font-size:10.5px;color:var(--muted)}
+  .cell.pass{background:#dff5df}
+  .cell.flaky{background:#fff2c9}
+  .cell.fail{background:#ffdfe3}
+  .cell.safety{box-shadow:inset 0 0 0 3px var(--coral)}
+  .up::after{content:"▲";position:absolute;top:1px;right:4px;font-size:9px;color:#2f8f3c}
+  .down::after{content:"▼";position:absolute;top:1px;right:4px;font-size:9px;color:var(--error)}
+
+  /* 归因 */
+  .atom{display:grid;grid-template-columns:1fr 150px 74px;gap:10px;align-items:center;margin-bottom:9px}
+  .atom .lab{font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .atom .lab code{font:11.5px ui-monospace,Consolas,monospace;color:var(--muted);display:block}
+  .bar{height:20px;border:3px solid var(--ink);background:#fff;position:relative}
+  .bar i{position:absolute;left:0;top:0;bottom:0;background:var(--fur)}
+  .bar.neg i{background:var(--error)}
+  .bar.inter i{background:var(--violet)}
+  .atom .val{text-align:right;font-weight:800;font-variant-numeric:tabular-nums;font-size:13px}
+
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{border:2px solid var(--ink);padding:6px 9px;text-align:right;font-variant-numeric:tabular-nums}
+  th:first-child,td:first-child{text-align:left}
+  th{background:var(--ink);color:var(--paper);font-weight:700}
+  tr.best td{background:#fff3d9;font-weight:700}
+  .note{font-size:12.5px;color:var(--muted);margin-top:10px;border-left:4px solid var(--muted);padding-left:10px}
+  footer{color:var(--muted);font-size:12px;text-align:center;margin-top:30px}
+  .kpi{display:flex;gap:14px;flex-wrap:wrap;margin-top:4px}
+  .kpi div{border:3px solid var(--ink);background:#fff;padding:8px 12px;min-width:130px}
+  .kpi b{display:block;font-size:22px;font-variant-numeric:tabular-nums;line-height:1.2}
+  .kpi span{font-size:12px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<script>/*__DATA__*/</script>
+<script>
+const D = window.__DATA__ || {};
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? "" : s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const f2 = (x) => (x == null ? "—" : Number(x).toFixed(2));
+const sign = (x) => (x > 0 ? "+" + f2(x) : f2(x));
+const dur = (s) => (s >= 90 ? (s / 60).toFixed(1) + " 分钟" : Math.round(s || 0) + "s");
+
+/* ---------- 头部 ---------- */
+function head() {
+  const c = D.config || {};
+  const base = D.baseline || {}, fin = D.final || {};
+  const pos = (D.delta || 0) > 0;
+  return `
+  <h1>HarnessDrift · 自改进曲线看板</h1>
+  <p class="sub">不训练模型，只让 harness（提示词 / 技能文档 / 工具描述）在评测反馈下演化。
+  每个点都带 ±，数据源 <code>runs/${esc(D.run)}/curve.json</code>。</p>
+  <div class="card">
+    <div class="kpi">
+      <div><b>${f2(base.mean)}</b><span>基线（${base.std != null ? "±" + f2(base.std) : ""}）</span></div>
+      <div><b class="${pos ? "ok" : "bad"}">${f2(fin.mean)}</b><span>最佳（第 ${fin.round_id ?? "—"} 轮）</span></div>
+      <div><b class="${pos ? "ok" : "bad"}">${sign(D.delta)}</b><span>净变化</span></div>
+      <div><b>${c.n_tasks || "—"}</b><span>题数 × ${c.reps || "—"} 次</span></div>
+      <div><b>${dur(D.elapsed_s)}</b><span>总耗时</span></div>
+    </div>
+    <div class="chips">
+      <span class="chip">接受规则 <b>${esc(c.accept)}</b></span>
+      <span class="chip">停止原因 <b>${esc(D.stop_reason)}</b></span>
+      <span class="chip">轮数上限 <b>${c.max_rounds ?? "—"}</b></span>
+      <span class="chip">patience <b>${c.patience ?? "—"}</b></span>
+      <span class="chip">模型 <b>${esc(c.solver_model || "—")}</b></span>
+      ${D.tokens && D.tokens.total_tokens ? `<span class="chip">用量 <b>${D.tokens.total_tokens.toLocaleString()}</b> token</span>` : ""}
+    </div>
+  </div>`;
+}
+
+/* ---------- 曲线 ---------- */
+function chart() {
+  const rs = D.rounds || [];
+  if (!rs.length) return "";
+  const W = 900, H = 320, L = 62, R = 24, T = 26, B = 44;
+  const vals = rs.flatMap((r) => [r.mean - (r.std || 0), r.mean + (r.std || 0)]);
+  let lo = Math.min(...vals), hi = Math.max(...vals);
+  const pad = Math.max((hi - lo) * 0.25, 1);
+  lo = Math.floor(lo - pad); hi = Math.ceil(hi + pad);
+  const x = (i) => L + (i * (W - L - R)) / Math.max(rs.length - 1, 1);
+  const y = (v) => T + ((hi - v) * (H - T - B)) / (hi - lo || 1);
+
+  let g = "";
+  // y 轴网格
+  const ticks = 4;
+  for (let i = 0; i <= ticks; i++) {
+    const v = lo + ((hi - lo) * i) / ticks;
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="#e6dccb" stroke-width="1"/>`;
+    g += `<text x="${L - 10}" y="${y(v) + 4}" text-anchor="end" font-size="11.5" fill="#9b8f86">${v.toFixed(1)}</text>`;
+  }
+  // 基线参考线
+  const bm = (D.baseline || {}).mean;
+  if (bm != null) {
+    g += `<line x1="${L}" x2="${W - R}" y1="${y(bm)}" y2="${y(bm)}" stroke="#2b2632" stroke-width="2" stroke-dasharray="6 5" opacity=".55"/>`;
+    g += `<text x="${W - R}" y="${y(bm) - 7}" text-anchor="end" font-size="11" fill="#2b2632" opacity=".7">基线 ${f2(bm)}</text>`;
+  }
+  // 连线
+  let path = "";
+  rs.forEach((r, i) => { path += (i ? "L" : "M") + x(i) + " " + y(r.mean) + " "; });
+  g += `<path d="${path}" fill="none" stroke="#2b2632" stroke-width="2.5" opacity=".45"/>`;
+
+  rs.forEach((r, i) => {
+    const cx = x(i), cy = y(r.mean), sd = r.std || 0;
+    g += `<line x1="${cx}" x2="${cx}" y1="${y(r.mean + sd)}" y2="${y(r.mean - sd)}" stroke="#2b2632" stroke-width="1.6"/>`;
+    g += `<line x1="${cx - 6}" x2="${cx + 6}" y1="${y(r.mean + sd)}" y2="${y(r.mean + sd)}" stroke="#2b2632" stroke-width="1.6"/>`;
+    g += `<line x1="${cx - 6}" x2="${cx + 6}" y1="${y(r.mean - sd)}" y2="${y(r.mean - sd)}" stroke="#2b2632" stroke-width="1.6"/>`;
+    const fill = r.kind === "base" ? "#2b2632" : r.accepted ? "#5fcf6a" : "#fff";
+    const stroke = r.kind === "base" ? "#2b2632" : r.accepted ? "#2b2632" : "#d6455a";
+    g += `<circle cx="${cx}" cy="${cy}" r="7" fill="${fill}" stroke="${stroke}" stroke-width="3"/>`;
+    if (r.kind !== "base" && !r.accepted) {
+      g += `<text x="${cx}" y="${cy + 4}" text-anchor="middle" font-size="12" font-weight="700" fill="#d6455a">×</text>`;
+    }
+    g += `<text x="${cx}" y="${cy - 16}" text-anchor="middle" font-size="12.5" font-weight="700" fill="#2b2632">${f2(r.mean)}</text>`;
+    const lbl = r.kind === "base" ? "基线" : `第${r.round_id}轮`;
+    g += `<text x="${cx}" y="${H - B + 20}" text-anchor="middle" font-size="12" fill="#9b8f86">${lbl}</text>`;
+    if (r.delta != null) {
+      g += `<text x="${cx}" y="${H - B + 36}" text-anchor="middle" font-size="11.5" font-weight="700" fill="${r.delta >= 0 ? "#2f8f3c" : "#d6455a"}">${sign(r.delta)}</text>`;
+    }
+    g += `<title>${lbl}：${f2(r.mean)}±${f2(r.std)}，${r.solved}/${r.n_tasks} 稳定通过${r.delta != null ? "，Δ" + sign(r.delta) : ""}</title>`;
+  });
+  return `<div class="card"><h2><span class="n">1</span>自改进曲线</h2>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="得分曲线">${g}</svg>
+    <div class="legend">
+      <span><i style="background:#2b2632"></i>基线</span>
+      <span><i style="background:#5fcf6a"></i>接受</span>
+      <span><i style="background:#fff;border-color:#d6455a"></i>拒绝（卡片虚线）</span>
+      <span>竖线 = ±std（题内重复 ${(D.config || {}).reps || "?"} 次估出的抖动）</span>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="note">纵轴刻度是真值，没有截断花招；被拒绝的点也照样画出来 —— 只画"最佳那条"的曲线
+      看起来会漂亮得多，但那是挑出来的。</div>
+      <div class="note">均值上涨不代表能力上涨：第 2、3 轮的均值都高于基线，但它们各自把一道原本稳定通过的题
+      弄成了稳定挂掉，所以被回退规则拦下。看下一节的「丢失」标。</div>
+    </div>
+    </div>`;
+}
+
+/* ---------- 轮次 ---------- */
+function diffHtml(p) {
+  if (!p) return "";
+  return p.split("\n").map((ln) => {
+    const c = ln.startsWith("+") ? "a" : ln.startsWith("-") ? "d" : ln.startsWith("#") || ln.startsWith("###") ? "h" : "";
+    return `<span class="${c}">${esc(ln)}</span>`;
+  }).join("\n");
+}
+
+function rounds() {
+  const rs = (D.rounds || []).filter((r) => r.kind !== "base");
+  if (!rs.length) return "";
+  const cards = rs.map((r) => {
+    const ch = r.changed || {};
+    const files = [
+      ...(ch.added || []).map((f) => `<span class="file add">+ ${esc(f)}</span>`),
+      ...(ch.removed || []).map((f) => `<span class="file del">− ${esc(f)}</span>`),
+      ...(ch.modified || []).map((f) => `<span class="file mod">~ ${esc(f)}</span>`),
+    ].join("");
+    const broke = (r.broke || []).map((t) => `<span class="broke">丢失 ${esc(t)}</span>`).join("");
+    const flaky = Object.keys(r.flaky || {});
+    return `<div class="round ${r.accepted ? "" : "rej"}">
+      <div class="rhead">
+        <span class="id">第 ${r.round_id} 轮</span>
+        <span class="tag ${r.accepted ? "acc" : "rej"}">${r.accepted ? "接受" : "拒绝"}</span>
+        <span class="num ${r.delta >= 0 ? "ok" : "bad"}">${sign(r.delta)}</span>
+        <span class="meta">${f2(r.mean)}±${f2(r.std)} · 稳定通过 ${r.solved}/${r.n_tasks}
+          ${r.delta_solved ? `（${r.delta_solved > 0 ? "+" : ""}${r.delta_solved}）` : ""} ·
+          ${Math.round(r.elapsed_s)}s${r.tokens && r.tokens.total_tokens ? ` · ${r.tokens.total_tokens.toLocaleString()} token` : ""}</span>
+      </div>
+      ${files ? `<div class="files">${files}</div>` : ""}
+      ${broke ? `<div class="files">${broke}</div>` : ""}
+      ${flaky.length ? `<div class="meta" style="margin-top:6px">本轮抖动题（各次结果不一致，是噪声不是能力）：${flaky.map(esc).join(" · ")}</div>` : ""}
+      ${r.patch ? `<details><summary>看这一轮的补丁（PATCH.md，${r.patch.length} 字符）</summary><pre class="diff">${diffHtml(r.patch)}</pre></details>` : ""}
+    </div>`;
+  }).join("");
+  return `<div class="card"><h2><span class="n">2</span>每一轮改了什么</h2>
+    <p class="sub" style="margin-bottom:12px">Δ 是相对<b>父树</b>的（不是相对上一轮候选）—— 被拒绝的候选不是父树，
+    下一轮仍然从父树出发。被拒绝的轮次照样列出补丁，否则没法判断拒绝得对不对。</p>
+    ${cards}</div>`;
+}
+
+/* ---------- 题矩阵 ---------- */
+function matrix() {
+  const tasks = D.tasks || [];
+  const rs = D.rounds || [];
+  if (!tasks.length) return "";
+  const base = rs.find((r) => r.kind === "base") || {};
+  const acc = [...rs].reverse().find((r) => r.accepted || r.kind === "base") || base;
+  const status = (vals) => {
+    if (!vals || !vals.length) return "fail";
+    const p = vals.filter((v) => v >= 1).length;
+    return p === vals.length ? "pass" : p === 0 ? "fail" : "flaky";
+  };
+  const cells = tasks.map((t) => {
+    const now = (acc.passes || {})[t.id], before = (base.passes || {})[t.id];
+    const s = status(now), sb = status(before);
+    let mark = "";
+    if (sb !== "pass" && s === "pass") mark = "up";
+    if (sb === "pass" && s !== "pass") mark = "down";
+    const tier = (t.tier || "normal") === "safety" ? " safety" : "";
+    const detail = `${t.id} ${t.message}\n期望：${t.expect}\n为什么：${t.why}\n各次结果：${(now || []).join("/") || "未跑"}`;
+    return `<div class="cell ${s}${tier} ${mark}" title="${esc(detail)}">${esc(t.id)}<small>${(now || []).map((v) => (v >= 1 ? "✓" : "✗")).join("") || "—"}</small></div>`;
+  }).join("");
+  const nPass = tasks.filter((t) => status((acc.passes || {})[t.id]) === "pass").length;
+  return `<div class="card"><h2><span class="n">3</span>题矩阵（最终留下的那棵树）</h2>
+    <p class="sub" style="margin-bottom:12px">${nPass}/${tasks.length} 道稳定通过。
+    悬停看题目、期望动作和每轮的 ✓✗；▲ 是本轮新稳定通过，▼ 是原本稳定通过后来挂掉（这就是回退规则盯着的东西）。
+    橙框是 safety 档（一票否决）。</p>
+    <div class="matrix">${cells}</div></div>`;
+}
+
+/* ---------- 归因 ---------- */
+function attribution() {
+  const a = D.attribution;
+  if (!a || !a.atoms) return "";
+  const atoms = a.atoms.slice().sort((p, q) => q.delta - p.delta);
+  const max = Math.max(...atoms.map((o) => Math.abs(o.delta)), Math.abs(a.interaction || 0), 0.01);
+  const row = (label, sub, delta, cls, tag) => `
+    <div class="atom">
+      <div class="lab">${esc(label)}${sub ? `<code>${esc(sub)}</code>` : ""}</div>
+      <div class="bar ${cls}"><i style="width:${Math.min(100, (Math.abs(delta) / max) * 100)}%"></i></div>
+      <div class="val ${delta > 0 ? "ok" : delta < 0 ? "bad" : "dim"}">${sign(delta)}${tag || ""}</div>
+    </div>`;
+  return `<div class="card"><h2><span class="n">4</span>归因：这一轮是哪个改动在起作用</h2>
+    <p class="sub" style="margin-bottom:12px">把补丁按 hunk 拆成原子，逐个单独合回父树评测。
+    父树 ${f2(a.base.mean)} → 全量 ${f2(a.full.mean)}（${sign(a.full_delta)}），最强单点 ${sign(a.best_atom_delta)}。</p>
+    ${atoms.map((o) => row(o.label || `原子 ${o.index}`, o.path, o.delta, o.delta < 0 ? "neg" : "", o.verdict === "有效" ? " ✓" : "")).join("")}
+    <div style="border-top:2px dashed #ddd0bf;margin:10px 0"></div>
+    ${row("交互效应（四条一起才有的部分）", "full − 父树 − Σ单点", a.interaction, "inter")}
+    <div class="note">交互效应为正，说明这些改动是<b>互相咬合</b>的：任何一条单独拿出来都不值 +${f2(a.full_delta)}。
+    只报总分的展示恰恰说不清这件事。</div>
+    </div>`;
+}
+
+/* ---------- 消融 ---------- */
+function ablation() {
+  const cs = D.curves || [];
+  if (cs.length < 2) return "";
+  const bestDelta = Math.max(...cs.map((c) => c.delta));
+  const rows = cs.map((c) => `<tr class="${c.delta === bestDelta ? "best" : ""}">
+      <td><b>${esc(c.accept)}</b><br><span class="meta">${esc(c.name)}</span></td>
+      <td>${f2(c.baseline)}<br><span class="meta">${c.baseline_solved} 题</span></td>
+      <td>${f2(c.best)}<br><span class="meta">${c.best_solved} 题</span></td>
+      <td class="${c.delta > 0 ? "ok" : c.delta < 0 ? "bad" : "dim"}">${sign(c.delta)}</td>
+      <td>${c.accepted} / ${c.rejected}</td>
+      <td>${c.broke_total}</td>
+      <td>${(c.lost_stable || []).join(" ") || "—"}</td>
+    </tr>`).join("");
+  return `<div class="card"><h2><span class="n">5</span>消融：接受规则是不是一个变量</h2>
+    <table>
+      <thead><tr><th>规则</th><th>基线</th><th>最佳</th><th>Δ</th><th>接受/拒绝</th><th>踩坏</th><th>丢失的稳定题</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <div class="note">这张表只支持<b>结构性差异</b>（always 会累积退化、nonregress 保住基线），
+    不支持排名：每档只跑了一次，两次基线就差 1 分。要排名得每档跑 3~5 条独立轨迹。</div>
+    </div>`;
+}
+
+/* ---------- 挂载 ---------- */
+$("#app").innerHTML = head() + chart() + rounds() + matrix() + attribution() + ablation() +
+  `<footer>由 <code>harnessdrift export</code> 从 runs/${esc(D.run)}/ 生成 · ${esc(D.generated_at || "")} ·
+   页面上每个数字都能在仓库的 json 里对回出处</footer>`;
+</script>
+</body>
+</html>
