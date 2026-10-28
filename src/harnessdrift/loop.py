@@ -76,6 +76,7 @@ from .guards import assert_no_grader_verdicts
 from .llm import LLM
 from .paths import read_tree, tree_hash, write_tree
 from .propose import Proposal, collect_failures, propose
+from .rescue import rescue_vetoed
 from .runner import EvalResult, evaluate_tree
 from .tasks import Task
 
@@ -121,6 +122,9 @@ class Round:
     passes: dict[str, list[float]] = field(default_factory=dict)
     errors: dict[str, str] = field(default_factory=dict)
     tokens: dict[str, int] = field(default_factory=dict)
+    # 被否决后又救回来的那一轮：记下删了哪些原子、试了几次、探测题过了几条。
+    # None 表示这一轮没走抢救（正常接受/拒绝，或者没开 --rescue）。
+    rescued: dict[str, Any] | None = None
 
     @property
     def pass_rate(self) -> float:
@@ -153,6 +157,7 @@ class Round:
             "flaky": self.flaky,
             "passes": {k: [int(x) for x in v] for k, v in self.passes.items()},
             "errors": self.errors,
+            "rescued": self.rescued,
             "patch_chars": len(self.patch_text),
         }
 
@@ -368,6 +373,7 @@ def run_loop(
     budget_s: float = 0.0,
     workers: int = 1,
     placebo: bool = False,
+    rescue: bool = False,
     verbose: bool = False,
     log=print,
 ) -> LoopResult:
@@ -525,27 +531,87 @@ def run_loop(
                                 workers=workers)
         # 决定收不收，只看训练列。留出列**不参与决策** —— 一旦拿它来挑补丁，
         # 它就从"看不见的考卷"变成"看得见的考卷"，过拟合只是晚一轮发生。
-        p_mean = _split_score(parent_ev, train_ids) if use_holdout else parent_ev.mean
-        c_mean = _split_score(cand_ev, train_ids) if use_holdout else cand_ev.mean
-        improved = _is_improved(c_mean, cand_ev.std, p_mean, parent_ev.std)
-        neutral = (not improved) and c_mean >= p_mean
-        take = _accepted(accept, c_mean, p_mean)
-        # 均值达标但踩坏了旧能力 -> 仍然拒绝（只在 nonregress 下生效；
-        # strict 本来就要求严格上升，always 就是"什么都不管"）。
-        # 回退名单**总是**要算：safety 档的一票否决不看 accept 模式，
-        # 它是安全属性，不是接受策略。--no-safety-veto 才关掉它。
-        regressed = _broke_stable(parent_ev.passes, cand_ev.passes)
-        broke = regressed if accept == "nonregress" else []
-        if not safety_veto:
-            broke_safety = []
-        elif safety_mode == "parent":
-            broke_safety = _broke_safety(regressed, tiers)
-        else:
-            broke_safety = _safety_regressed(locked, cand_ev.passes)
-        blocked_by_regression = take and bool(broke)
-        blocked_by_safety = take and bool(broke_safety)
-        if blocked_by_regression or blocked_by_safety:
-            take = False
+        def _judge(ev: EvalResult) -> dict[str, Any]:
+            """对一棵候选树做出全部判定（分数 + 回退 + 安全否决）。
+
+            抽成函数是为了让抢救复用同一套规则：救出来的树走的是**完全相同的**
+            判定，不是"抢救通道放宽一点"。否则抢救就成了作弊。
+            """
+            p_m = _split_score(parent_ev, train_ids) if use_holdout else parent_ev.mean
+            c_m = _split_score(ev, train_ids) if use_holdout else ev.mean
+            imp = _is_improved(c_m, ev.std, p_m, parent_ev.std)
+            neu = (not imp) and c_m >= p_m
+            acc = _accepted(accept, c_m, p_m)
+            # 均值达标但踩坏了旧能力 -> 仍然拒绝（只在 nonregress 下生效；
+            # strict 本来就要求严格上升，always 就是"什么都不管"）。
+            # 回退名单**总是**要算：safety 档的一票否决不看 accept 模式，
+            # 它是安全属性，不是接受策略。--no-safety-veto 才关掉它。
+            reg = _broke_stable(parent_ev.passes, ev.passes)
+            brk = reg if accept == "nonregress" else []
+            if not safety_veto:
+                bsafe: list[str] = []
+            elif safety_mode == "parent":
+                bsafe = _broke_safety(reg, tiers)
+            else:
+                bsafe = _safety_regressed(locked, ev.passes)
+            blocked_r = acc and bool(brk)
+            blocked_s = acc and bool(bsafe)
+            return {
+                "p_mean": p_m, "c_mean": c_m, "improved": imp, "neutral": neu,
+                "take": bool(acc and not blocked_r and not blocked_s),
+                "broke": brk, "broke_safety": bsafe,
+                "blocked_by_regression": blocked_r, "blocked_by_safety": blocked_s,
+            }
+
+        j = _judge(cand_ev)
+        rescued_info: dict[str, Any] | None = None
+        # ---- 被否决的轮做原子级抢救 -------------------------------------
+        # 只在"分数够、但踩坏了东西"的时候才救：分数本来就不够的轮，
+        # 删原子只会让它更差，没有必要花评测钱。
+        if rescue and not j["take"] and (j["blocked_by_safety"] or j["blocked_by_regression"]):
+            probe = sorted(set(j["broke_safety"]) | set(j["broke"]))
+            over_budget = bool(max_tokens) and _tokens_spent() > max_tokens
+            if probe and over_budget:
+                log(f"    抢救跳过：已经花掉 {_tokens_spent():,} token，"
+                    f"超过预算 {max_tokens:,}")
+            elif probe:
+                log(f"    抢救：在 {len(probe)} 条被踩坏的题上逐个原子试删（{' '.join(probe)}）")
+                rr = rescue_vetoed(parent_tree, cand_tree, tasks, llm, probe_ids=probe,
+                                   reps=reps, workers=workers, verbose=verbose, log=log)
+                if rr.ok and rr.tree is not None:
+                    resc_ev = evaluate_tree(rr.tree, tasks, llm, reps=reps,
+                                            verbose=verbose, workers=workers)
+                    rj = _judge(resc_ev)
+                    delta_r = rj["c_mean"] - rj["p_mean"]
+                    log(f"    抢救后全量 = {resc_ev.mean:.2f}±{resc_ev.std:.2f} "
+                        f"(Δ{delta_r:+.2f}) → {'可以收' if rj['take'] else '仍然不收'}")
+                    if rj["take"]:
+                        cand_tree, cand_ev, j = rr.tree, resc_ev, rj
+                        rescued_info = rr.as_dict()
+                        write_tree(cand_tree, Path(prop.round_dir), clean=True)
+                        note = (
+                            "\n\n## 抢救记录\n\n"
+                            + "\n".join(
+                                f"- 删掉原子 [{a.index}] `{a.path}`：{a.label}"
+                                for a in rr.dropped
+                            )
+                        )
+                        (Path(prop.round_dir) / "PATCH.md").write_text(
+                            prop.patch_text + note, encoding="utf-8", newline="")
+                        log(f"    ✓ 抢救成功：删掉 {len(rr.dropped)} 个原子，"
+                            f"其余改动全部保留")
+                    else:
+                        log(f"    抢救无效：删了原子仍然过不了验收（{rr.reason}）")
+                else:
+                    log(f"    抢救失败：{rr.reason}")
+                    if rr.attempts:
+                        rescued_info = rr.as_dict()
+
+        p_mean, c_mean = j["p_mean"], j["c_mean"]
+        improved, neutral, take = j["improved"], j["neutral"], j["take"]
+        broke, broke_safety = j["broke"], j["broke_safety"]
+        blocked_by_regression = j["blocked_by_regression"]
+        blocked_by_safety = j["blocked_by_safety"]
 
         delta = c_mean - p_mean
         verdict = ("上升" if improved else "持平" if neutral else "下降")
@@ -569,6 +635,7 @@ def run_loop(
         r.improved, r.neutral, r.broke = improved, neutral, broke
         r.broke_safety = broke_safety
         r.patch_text, r.changed, r.warnings = prop.patch_text, prop.changed, prop.warnings
+        r.rescued = rescued_info
         rounds.append(r)
 
         if take:
@@ -627,6 +694,7 @@ def run_loop(
             "budget_s": budget_s,
             "workers": workers,
             "placebo": placebo,
+            "rescue": rescue,
             "n_tasks": len(tasks),
             "solver_model": llm.model,
             "improver_model": improver.model,

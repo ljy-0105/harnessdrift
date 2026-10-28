@@ -136,6 +136,7 @@ def cmd_loop(args: argparse.Namespace) -> int:
         safety_mode=args.safety_mode,
         holdout=args.holdout,
         placebo=args.placebo,
+        rescue=args.rescue,
         max_tokens=args.max_tokens,
         budget_s=args.budget_min * 60 if args.budget_min else 0.0,
         workers=args.workers,
@@ -216,6 +217,83 @@ def cmd_ablate(args: argparse.Namespace) -> int:
     rpt = write_attribution(res, out_root / "ATTRIBUTION.md")
     print(f"\n归因报告 {rpt}")
     print(f"原始数据 {out_root / 'attribution.json'}")
+    return 0
+
+
+def tiers_of(tasks) -> dict[str, str]:  # noqa: ANN001
+    return {t.id: t.tier for t in tasks}
+
+
+def cmd_rescue(args: argparse.Namespace) -> int:
+    """对一次被否决的候选做原子级抢救，并全量重测救出来的树。
+
+    为什么单独做成子命令而不是只藏在 loop 里：抢救的价值在**复盘**
+    ——「这一轮被拦了，但拦下的其实还能救回多少」是个可以事后验证的问题。
+    藏在 loop 里就只能等下次撞上同样的运气。
+    """
+    from .loop import _broke_stable
+    from .rescue import rescue_vetoed
+
+    tasks = _select_tasks(args)
+    if not tasks:
+        print("没有任务可跑", file=sys.stderr)
+        return 2
+
+    parent = read_tree(Path(args.parent))
+    cand = read_tree(Path(args.cand), ignore=("PATCH.md",))
+    if parent == cand:
+        print("两棵树完全一样，没有可抢救的东西", file=sys.stderr)
+        return 2
+
+    out_root = Path(args.out)
+    out_root.mkdir(parents=True, exist_ok=True)
+    llm = LLM(model=args.model) if args.model else LLM()
+
+    # 探测题：默认用 safety 档里"父树稳定过、候选稳定挂"的那些。
+    # 这正是 loop 里触发一票否决的判据，所以复盘用的是同一把尺子。
+    if args.probe:
+        probe = [x for x in args.probe.split(",") if x]
+    else:
+        parent_ev = evaluate_tree(parent, tasks, llm, reps=args.reps,
+                                  workers=args.workers, verbose=args.verbose)
+        cand_ev = evaluate_tree(cand, tasks, llm, reps=args.reps,
+                                workers=args.workers, verbose=args.verbose)
+        broke = _broke_stable(parent_ev.passes, cand_ev.passes)
+        probe = [t for t in broke if tiers_of(tasks).get(t) == "safety"]
+        print(f"父树 {parent_ev.mean:.2f}±{parent_ev.std:.2f} · "
+              f"候选 {cand_ev.mean:.2f}±{cand_ev.std:.2f}")
+        print(f"回退 {len(broke)} 条：{broke}")
+        if not probe:
+            print("没有 safety 档回退，不需要抢救", file=sys.stderr)
+            return 0
+        print(f"探测题（safety 档回退）：{probe}")
+
+    print(f"=== 抢救：逐个原子试删，目标是 {probe} 全部稳定通过 ===")
+    rr = rescue_vetoed(parent, cand, tasks, llm, probe_ids=probe, reps=args.reps,
+                       workers=args.workers, verbose=args.verbose,
+                       max_drop=args.max_drop,
+                       log=lambda s: print(s, flush=True))
+    payload: dict[str, Any] = {"parent": str(args.parent), "cand": str(args.cand),
+                               "probe": probe, **rr.as_dict()}
+    if not rr.ok or rr.tree is None:
+        print(f"\n抢救失败：{rr.reason}")
+        (out_root / "rescue.json").write_text(
+            json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        return 1
+
+    write_tree(rr.tree, out_root / "rescued")
+    print(f"\n救出来的树已写到 {out_root / 'rescued'}"
+          f"（删了 {len(rr.dropped)} 个原子，其余保留）")
+    print("=== 全量重测救出来的树 ===")
+    ev = evaluate_tree(rr.tree, tasks, llm, reps=args.reps,
+                       workers=args.workers, verbose=args.verbose)
+    payload["rescued_eval"] = {"mean": round(ev.mean, 4), "std": round(ev.std, 4),
+                               "solved": ev.solved, "passes": {k: [int(x) for x in v]
+                                                               for k, v in ev.passes.items()}}
+    (out_root / "rescue.json").write_text(
+        json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"抢救后 = {ev.mean:.2f}±{ev.std:.2f} / {ev.n_tasks}（稳定通过 {ev.solved} 条）")
+    print(f"已写入 {out_root / 'rescue.json'}")
     return 0
 
 
@@ -316,6 +394,9 @@ def main(argv: list[str] | None = None) -> int:
                     help="安慰剂对照组：失败样本一律不进提案端，只要求补一条"
                          "与业务无关的通用说明。配合 --accept always 用，"
                          "看的就是「没有改进信号时曲线会不会自己往上走」")
+    lp.add_argument("--rescue", action="store_true",
+                    help="被否决的轮做原子级抢救：逐个删原子直到被踩坏的题全部"
+                         "通过，再拿剩下的树重测并走同一套验收。救不回来就不收")
     lp.add_argument("--holdout", action="store_true",
                     help="启用留出集：split=holdout 的题照常评测计分，"
                          "但失败样本不喂给提案端，也不参与接受决策")
@@ -342,6 +423,18 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--workers", type=int, default=1, help="评测并发数")
     ap.add_argument("--model", default="", help="求解模型（覆盖环境变量）")
     ap.set_defaults(func=cmd_ablate)
+
+    rs = sub.add_parser("rescue", help="对被否决的候选做原子级抢救并重测")
+    _common(rs)
+    rs.add_argument("--parent", default="harness/base", help="父树（那一轮的起点）")
+    rs.add_argument("--cand", required=True, help="被否决的候选树，如 runs/x/_rejected/round1")
+    rs.add_argument("--probe", default="", help="逗号分隔的探测题 id；默认自动取 safety 档回退")
+    rs.add_argument("--max-drop", type=int, default=3, help="最多尝试删几个原子")
+    rs.add_argument("--out", default="runs/rescue")
+    rs.add_argument("--reps", type=int, default=3)
+    rs.add_argument("--workers", type=int, default=1, help="评测并发数")
+    rs.add_argument("--model", default="", help="求解模型（覆盖环境变量）")
+    rs.set_defaults(func=cmd_rescue)
 
     cp = sub.add_parser("compare", help="并排对照多条曲线（消融）")
     cp.add_argument("--curves", required=True, help="逗号分隔的曲线目录")
