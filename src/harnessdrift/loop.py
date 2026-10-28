@@ -99,6 +99,11 @@ class Round:
     n_tasks: int
     solved: int
     elapsed_s: float
+    # 训练/留出分开的均值。没开 --holdout 时是 None，报告里就不出这一列
+    # （不是 0.0 —— 0.0 会被读成"留出集全挂"，那是个截然不同的结论）。
+    mean_train: float | None = None
+    mean_holdout: float | None = None
+    n_holdout: int = 0
     # 相对父树的判定
     improved: bool = False
     neutral: bool = False
@@ -133,6 +138,9 @@ class Round:
             "n_tasks": self.n_tasks,
             "solved": self.solved,
             "elapsed_s": round(self.elapsed_s, 1),
+            "mean_train": None if self.mean_train is None else round(self.mean_train, 4),
+            "mean_holdout": None if self.mean_holdout is None else round(self.mean_holdout, 4),
+            "n_holdout": self.n_holdout,
             "improved": self.improved,
             "neutral": self.neutral,
             "broke": self.broke,
@@ -199,8 +207,33 @@ class LoopResult:
         }
 
 
+def _split_score(ev: EvalResult, ids: Sequence[str]) -> float | None:
+    """只对给定的一批题算总分。
+
+    为什么是**总分**而不是均分：``EvalResult.mean`` 的口径是"各题通过率之和"
+    （50 题满分就是 50），报告里所有分数都按这个口径印。分档要是换成 0–1 的均分，
+    同一张表里两列会差一个数量级，读者只会以为哪里算错了。所以这里跟着主口径走：
+    训练列 + 留出列 = 总分，两列能直接相加对上。
+
+    为什么不用 ``ev.mean`` 乘个系数：均值是逐题的 0/1 平均，题量不同不能按比例换算；
+    而且 `--only` / 子集评测时 `ev.mean` 覆盖的是子集，换算出来的数字没有意义。
+    这里直接从 passes 里取，缺题的跳过 —— 和 `_broke_stable` 的处理方式一致。
+    """
+    vals = []
+    for tid in ids:
+        pv = ev.passes.get(tid)
+        if pv:
+            vals.append(sum(pv) / len(pv))
+    if not vals:
+        return None
+    return sum(vals)
+
+
 def _to_round(n: int, kind: str, path: Path, tree: dict[str, str],
-              ev: EvalResult) -> Round:
+              ev: EvalResult, *,
+              train_ids: Sequence[str] | None = None,
+              holdout_ids: Sequence[str] | None = None) -> Round:
+    holdout_ids = list(holdout_ids or [])
     return Round(
         round_id=n,
         kind=kind,
@@ -218,6 +251,9 @@ def _to_round(n: int, kind: str, path: Path, tree: dict[str, str],
         passes=ev.passes,
         errors=ev.errors,
         tokens=ev.tokens,
+        mean_train=None if train_ids is None else _split_score(ev, train_ids),
+        mean_holdout=None if not holdout_ids else _split_score(ev, holdout_ids),
+        n_holdout=len(holdout_ids),
     )
 
 
@@ -327,6 +363,8 @@ def run_loop(
     accept: AcceptMode = "nonregress",
     safety_veto: bool = True,
     safety_mode: SafetyMode = "lock",
+    holdout: bool = False,
+    max_tokens: int = 0,
     budget_s: float = 0.0,
     verbose: bool = False,
     log=print,
@@ -342,16 +380,39 @@ def run_loop(
     # 导致档位查不到、静默降级成 normal。
     tiers: dict[str, str] = {t.id: t.tier for t in tasks}
 
+    # ---- 留出集 -----------------------------------------------------------
+    # 这里的唯一硬约束：holdout 的失败样本**不许**进 propose()。
+    # 分数照常算、照常写进报告 —— 要看的正是"它没被针对性改过，分数会不会一起涨"。
+    holdout_ids = [t.id for t in tasks if t.split == "holdout"]
+    train_ids = [t.id for t in tasks if t.split != "holdout"]
+    use_holdout = bool(holdout and holdout_ids)
+    if holdout and not train_ids:
+        raise ValueError("题库里没有训练题，全是留出题：提案端无题可看，循环没有意义")
+    if holdout_ids and not holdout:
+        log(f"注意：题库里有 {len(holdout_ids)} 条留出题，但没开 --holdout —— "
+            f"它们的失败样本会照常喂给提案端，留出集就失效了")
+    if use_holdout:
+        log(f"留出集 {len(holdout_ids)} 条 / 训练集 {len(train_ids)} 条："
+            f"留出题只计分、不进提案端")
+    ho = holdout_ids if use_holdout else None
+    tr = train_ids if use_holdout else None
+
     base_tree = read_tree(base_dir)
     assert_no_grader_verdicts(base_tree)
 
     log(f"=== 第 0 轮：基线（{len(tasks)} 条 × {reps} 轮）===")
     base_ev = evaluate_tree(base_tree, tasks, llm, reps=reps, verbose=verbose)
-    rounds: list[Round] = [_to_round(0, "base", base_dir, base_tree, base_ev)]
+    rounds: list[Round] = [_to_round(0, "base", base_dir, base_tree, base_ev,
+                                     train_ids=tr, holdout_ids=ho)]
     # 基线就稳住的 safety 能力先进锁定名单；之后只增不减。
     locked: set[str] = _locked_safety(tasks, base_ev.passes)
     log(f"基线 = {base_ev.mean:.2f}±{base_ev.std:.2f} / {base_ev.n_tasks} "
         f"({base_ev.pass_rate:.1%})  稳定通过 {base_ev.solved} 条")
+    if use_holdout:
+        log(f"  训练 {_split_score(base_ev, train_ids) or 0:.2f} · "
+            f"留出 {_split_score(base_ev, holdout_ids) or 0:.2f}"
+            f"（{len(holdout_ids)} 条，其中失败 "
+            f"{sum(1 for i in holdout_ids if not all(x >= 1.0 for x in base_ev.passes.get(i, [1.0])))} 条）")
 
     parent_tree, parent_ev = base_tree, base_ev
     parent_round = 0
@@ -360,16 +421,38 @@ def run_loop(
     patch_fails = 0   # 连续产不出合法补丁
     tried: list[str] = []  # 被拒绝过的补丁，喂回改进器避免重复
 
+    def _tokens_spent() -> int:
+        """这一整条曲线到目前为止烧掉的 token。
+
+        求解器和改进器是两个 LLM 实例，各记各的账，加起来才是真实花销。
+        只查开头那一次是不够的：一轮评测 38 题×3 次就能烧掉 1M，
+        必须在**花钱最贵的那一步之前**也查一次，否则预算形同虚设。
+        """
+        return sum(x.usage_total.get("total_tokens", 0) for x in (llm, improver))
+
     for n in range(1, max_rounds + 1):
         if budget_s and time.time() - started > budget_s:
             stop_reason = f"超出耗时预算 {budget_s:.0f}s"
             break
+        if max_tokens:
+            # 两个 LLM 实例分别记账（求解器 / 改进器），加起来才是这一轮真实花掉的。
+            spent = _tokens_spent()
+            if spent > max_tokens:
+                stop_reason = f"超出 token 预算 {max_tokens:,}（已用 {spent:,}）"
+                break
         if parent_ev.mean >= len(tasks):
             stop_reason = "已满分，无可改进"
             break
 
         log(f"\n=== 第 {n} 轮：PROPOSE ===")
         failures = collect_failures(parent_ev.raw)
+        if use_holdout:
+            ho_set = set(holdout_ids)
+            hidden = [f for f in failures if f.task_id in ho_set]
+            failures = [f for f in failures if f.task_id not in ho_set]
+            if hidden:
+                log(f"  留出集失败 {len(hidden)} 条（只计数，不喂给提案端）："
+                    f"{[f.task_id for f in hidden]}")
         log(f"失败样本 {len(failures)} 条：{[f.task_id for f in failures]}")
 
         if not failures:
@@ -391,6 +474,9 @@ def run_loop(
                 round_id=n, kind="rejected", harness_dir="", tree_hash="",
                 mean=parent_ev.mean, std=parent_ev.std, reps=reps,
                 n_tasks=len(tasks), solved=parent_ev.solved, elapsed_s=0.0,
+                mean_train=None if tr is None else _split_score(parent_ev, tr),
+                mean_holdout=None if not ho else _split_score(parent_ev, ho),
+                n_holdout=len(ho or []),
                 warnings=prop.warnings, patch_text=prop.patch_text,
             ))
             if patch_fails >= proposal_patience:
@@ -406,10 +492,21 @@ def run_loop(
         log(f"  补丁通过守卫：{prop.changed}")
 
         log(f"=== 第 {n} 轮：评测候选 ===")
+        # 补丁已经写出来了，但评测是最贵的一步（38×3 次调用）。到这儿再查一次预算，
+        # 宁可少跑一轮，也不要"发现超预算时已经花掉了两倍"。
+        if max_tokens and _tokens_spent() > max_tokens:
+            stop_reason = f"超出 token 预算 {max_tokens:,}（已用 {_tokens_spent():,}），停在评测前"
+            log(f"  {stop_reason}")
+            shutil.rmtree(out_root / f"round{n}", ignore_errors=True)
+            break
         cand_ev = evaluate_tree(cand_tree, tasks, llm, reps=reps, verbose=verbose)
-        improved = _is_improved(cand_ev.mean, cand_ev.std, parent_ev.mean, parent_ev.std)
-        neutral = (not improved) and cand_ev.mean >= parent_ev.mean
-        take = _accepted(accept, cand_ev.mean, parent_ev.mean)
+        # 决定收不收，只看训练列。留出列**不参与决策** —— 一旦拿它来挑补丁，
+        # 它就从"看不见的考卷"变成"看得见的考卷"，过拟合只是晚一轮发生。
+        p_mean = _split_score(parent_ev, train_ids) if use_holdout else parent_ev.mean
+        c_mean = _split_score(cand_ev, train_ids) if use_holdout else cand_ev.mean
+        improved = _is_improved(c_mean, cand_ev.std, p_mean, parent_ev.std)
+        neutral = (not improved) and c_mean >= p_mean
+        take = _accepted(accept, c_mean, p_mean)
         # 均值达标但踩坏了旧能力 -> 仍然拒绝（只在 nonregress 下生效；
         # strict 本来就要求严格上升，always 就是"什么都不管"）。
         # 回退名单**总是**要算：safety 档的一票否决不看 accept 模式，
@@ -427,19 +524,25 @@ def run_loop(
         if blocked_by_regression or blocked_by_safety:
             take = False
 
-        delta = cand_ev.mean - parent_ev.mean
+        delta = c_mean - p_mean
         verdict = ("上升" if improved else "持平" if neutral else "下降")
         if blocked_by_regression:
             verdict += f"，但改坏 {len(broke)} 条"
         log(f"  候选 = {cand_ev.mean:.2f}±{cand_ev.std:.2f}  "
             f"(Δ{delta:+.2f}, {verdict})  → {'接受' if take else '拒绝'}")
+        if use_holdout:
+            h_mean = _split_score(cand_ev, holdout_ids) or 0.0
+            h_parent = _split_score(parent_ev, holdout_ids) or 0.0
+            log(f"    留出集 {h_parent:.2f} → {h_mean:.2f}（{h_mean - h_parent:+.2f}，"
+                f"{len(holdout_ids)} 条，不参与决策）")
         if blocked_by_safety:
             log(f"    一票否决：{' '.join(broke_safety)} 是 safety 档，"
                 f"挂一条就不是分数问题 —— 均值涨再多也不收")
         if broke and not take:
             log(f"    回退：{' '.join(broke)} 本来稳定通过，候选稳定挂掉")
 
-        r = _to_round(n, "accepted" if take else "rejected", Path(prop.round_dir), cand_tree, cand_ev)
+        r = _to_round(n, "accepted" if take else "rejected", Path(prop.round_dir), cand_tree, cand_ev,
+                      train_ids=tr, holdout_ids=ho)
         r.improved, r.neutral, r.broke = improved, neutral, broke
         r.broke_safety = broke_safety
         r.patch_text, r.changed, r.warnings = prop.patch_text, prop.changed, prop.warnings
@@ -493,6 +596,10 @@ def run_loop(
             "accept": accept,
             "safety_veto": safety_veto,
             "safety_mode": safety_mode,
+            "holdout": use_holdout,
+            "n_holdout": len(holdout_ids),
+            "n_train": len(train_ids),
+            "max_tokens": max_tokens,
             "n_safety": sum(1 for t in tasks if t.tier == "safety"),
             "budget_s": budget_s,
             "n_tasks": len(tasks),

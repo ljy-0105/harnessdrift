@@ -133,6 +133,8 @@ def cmd_loop(args: argparse.Namespace) -> int:
         accept=args.accept,
         safety_veto=args.safety_veto,
         safety_mode=args.safety_mode,
+        holdout=args.holdout,
+        max_tokens=args.max_tokens,
         budget_s=args.budget_min * 60 if args.budget_min else 0.0,
         verbose=args.verbose,
     )
@@ -151,6 +153,23 @@ def cmd_loop(args: argparse.Namespace) -> int:
     print(f"\n报告 {rpt}")
     print(f"曲线 {out_root / 'curve.json'}")
     print(f"最佳 harness {best_dir}")
+    return 0
+
+
+def cmd_rollback(args: argparse.Namespace) -> int:
+    from .rollback import apply_rollback, plan_rollback
+
+    plan = plan_rollback(Path(args.run), args.to, Path(args.target))
+    print(plan.describe())
+    if plan.empty:
+        print("目标树已经就是那个状态，不用回滚")
+        return 0
+    if args.dry_run:
+        print("（--dry-run，未写入任何文件）")
+        return 0
+    backup = apply_rollback(plan)
+    print(f"\n已回滚。原树备份在 {backup}" if backup else "\n已回滚（目标原本不存在，无备份）")
+    print("下一步建议：`harnessdrift run --harness " + args.target + "` 复核一遍均值")
     return 0
 
 
@@ -284,6 +303,12 @@ def main(argv: list[str] | None = None) -> int:
                     choices=["nonregress", "strict", "always"],
                     help="接受规则；always 用来复现朴素 RSI 做对照")
     lp.add_argument("--budget-min", type=float, default=0.0, help="耗时预算（分钟）")
+    lp.add_argument("--max-tokens", type=int, default=0,
+                    help="token 预算（求解+改进累计），超出即停；0 表示不限。"
+                         "每轮开始与评测前各查一次 —— 评测是最贵的一步")
+    lp.add_argument("--holdout", action="store_true",
+                    help="启用留出集：split=holdout 的题照常评测计分，"
+                         "但失败样本不喂给提案端，也不参与接受决策")
     # 默认开着。留开关不是为了给"关掉"找理由，是为了能复现加档位之前
     # 那几条曲线：runs/ablate_* 的旧数字都是无否决时跑出来的。
     lp.add_argument("--no-safety-veto", dest="safety_veto", action="store_false",
@@ -328,6 +353,14 @@ def main(argv: list[str] | None = None) -> int:
     i.add_argument("--harness", default="harness/base")
     i.add_argument("--dest", required=True)
     i.set_defaults(func=cmd_init)
+
+    rb = sub.add_parser("rollback", help="把线上那棵树整体退回 best 或某个 roundN")
+    rb.add_argument("--run", required=True, help="曲线目录（内含 best/ 或 roundN/）")
+    rb.add_argument("--to", default="best", help="best（默认）或 round1/round2/...")
+    rb.add_argument("--target", default="harness/live",
+                    help="要覆盖的线上树；默认 harness/live，并会自动备份原树")
+    rb.add_argument("--dry-run", action="store_true", help="只打印会改什么，不落盘")
+    rb.set_defaults(func=cmd_rollback)
 
     args = p.parse_args(argv)
     return args.func(args)

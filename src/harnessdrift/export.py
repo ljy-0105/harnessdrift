@@ -74,6 +74,9 @@ def _rounds(curve: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
                 "std": r["std"],
                 "solved": r.get("solved", 0),
                 "n_tasks": r.get("n_tasks", 0),
+                "mean_train": r.get("mean_train"),
+                "mean_holdout": r.get("mean_holdout"),
+                "n_holdout": r.get("n_holdout", 0),
                 "elapsed_s": r.get("elapsed_s", 0.0),
                 "delta": None,
                 "delta_solved": None,
@@ -99,6 +102,9 @@ def _rounds(curve: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
             "std": r["std"],
             "solved": r.get("solved", 0),
             "n_tasks": r.get("n_tasks", 0),
+            "mean_train": r.get("mean_train"),
+            "mean_holdout": r.get("mean_holdout"),
+            "n_holdout": r.get("n_holdout", 0),
             "elapsed_s": r.get("elapsed_s", 0.0),
             "delta": round(float(r["mean"]) - parent_mean, 2),
             "delta_solved": int(r.get("solved", 0)) - parent_solved,
@@ -127,6 +133,9 @@ def _tasks(path: Path) -> list[dict[str, Any]]:
             "why": t.get("why", ""),
             "expect": t.get("expect", ""),
             "tier": t.get("tier", "normal"),
+            # 留出题必须在看板上能和训练题区分开：否则读者会把 H01 的 ×
+            # 当成"又一个没修好的缺陷"，而它其实是"没让改进器看过的题"
+            "split": t.get("split", "train"),
         }
         for t in raw
     ]

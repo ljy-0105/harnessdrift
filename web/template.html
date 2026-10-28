@@ -87,6 +87,11 @@
   .cell.flaky{background:#fff2c9}
   .cell.fail{background:#ffdfe3}
   .cell.safety{box-shadow:inset 0 0 0 3px var(--coral)}
+  /* 留出题：虚线框 + 角标。它和训练题的唯一区别是"改进器没见过"，
+     所以视觉上也必须是"另一种题"，不能靠读者去记 H 开头的编号 */
+  .cell.holdout{border-style:dashed;border-width:2px;border-color:#8a7fd8}
+  .cell.holdout::after{content:"留出";position:absolute;top:-1px;right:-1px;font-size:9px;
+    background:#8a7fd8;color:#fff;padding:0 3px;border-radius:0 0 0 4px;letter-spacing:.5px}
   .up::after{content:"▲";position:absolute;top:1px;right:4px;font-size:9px;color:#2f8f3c}
   .down::after{content:"▼";position:absolute;top:1px;right:4px;font-size:9px;color:var(--error)}
 
@@ -261,7 +266,7 @@ function rounds() {
         <span class="num ${r.delta >= 0 ? "ok" : "bad"}">${sign(r.delta)}</span>
         <span class="meta">${f2(r.mean)}±${f2(r.std)} · 稳定通过 ${r.solved}/${r.n_tasks}
           ${r.delta_solved ? `（${r.delta_solved > 0 ? "+" : ""}${r.delta_solved}）` : ""} ·
-          ${Math.round(r.elapsed_s)}s${r.tokens && r.tokens.total_tokens ? ` · ${r.tokens.total_tokens.toLocaleString()} token` : ""}</span>
+          ${r.mean_holdout != null ? `留出 ${f2(r.mean_holdout)}（${r.n_holdout} 条，不参与决策） · ` : ""}${Math.round(r.elapsed_s)}s${r.tokens && r.tokens.total_tokens ? ` · ${r.tokens.total_tokens.toLocaleString()} token` : ""}</span>
       </div>
       ${files ? `<div class="files">${files}</div>` : ""}
       ${broke ? `<div class="files">${broke}</div>` : ""}
@@ -288,13 +293,15 @@ function matrix() {
     const p = vals.filter((v) => v >= 1).length;
     return p === vals.length ? "pass" : p === 0 ? "fail" : "flaky";
   };
+  const hasHoldout = tasks.some((t) => t.split === "holdout");
   const cells = tasks.map((t) => {
     const now = (acc.passes || {})[t.id], before = (base.passes || {})[t.id];
     const s = status(now), sb = status(before);
     let mark = "";
     if (sb !== "pass" && s === "pass") mark = "up";
     if (sb === "pass" && s !== "pass") mark = "down";
-    const tier = (t.tier || "normal") === "safety" ? " safety" : "";
+    const tier = ((t.tier || "normal") === "safety" ? " safety" : "")
+      + (t.split === "holdout" ? " holdout" : "");
     const detail = `${t.id} ${t.message}\n期望：${t.expect}\n为什么：${t.why}\n各次结果：${(now || []).join("/") || "未跑"}`;
     return `<div class="cell ${s}${tier} ${mark}" title="${esc(detail)}">${esc(t.id)}<small>${(now || []).map((v) => (v >= 1 ? "✓" : "✗")).join("") || "—"}</small></div>`;
   }).join("");
@@ -302,7 +309,7 @@ function matrix() {
   return `<div class="card"><h2><span class="n">3</span>题矩阵（最终留下的那棵树）</h2>
     <p class="sub" style="margin-bottom:12px">${nPass}/${tasks.length} 道稳定通过。
     悬停看题目、期望动作和每轮的 ✓✗；▲ 是本轮新稳定通过，▼ 是原本稳定通过后来挂掉（这就是回退规则盯着的东西）。
-    橙框是 safety 档（一票否决）。</p>
+    橙框是 safety 档（一票否决）${hasHoldout ? "；虚线紫框是<b>留出题</b>——它的失败样本从没喂给改进器，分数也不参与任何决策，用来看这次改进有没有泛化" : ""}。</p>
     <div class="matrix">${cells}</div></div>`;
 }
 

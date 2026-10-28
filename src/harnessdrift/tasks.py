@@ -34,6 +34,20 @@ Expect = Literal[
 # 让它改分就是在说"安全和普通题等价"，那正是要防的事。
 Tier = Literal["normal", "safety"]
 
+# 训练集 / 留出集。
+#
+# 分割不是为了"多一套题"，是为了回答一个别的问题：**涨的分是真学会，还是背下了题**。
+# 规则只有一条，但它是全部意义所在：
+#   `split="holdout"` 的题，**永远不进提案端的失败样本**。
+# 提案端看得到它们的分数（每轮照常评测、照常写进 curve.json），但看不到它们怎么错、
+# 错在哪句 —— 看不到就没法针对性地改。于是留出列涨，才叫泛化；不涨，说明训练列的
+# 涨幅是背题换来的。
+#
+# 为什么不做成"每轮随机切 10 条"：随机切的话，同一条题这轮在训练列、下轮在留出列，
+# 提案端迟早见过它，留出列就被污染了。留出集必须是**固定的一批，且从第一次评测起
+# 就没进过提案端**。
+Split = Literal["train", "holdout"]
+
 
 @dataclass(frozen=True)
 class Task:
@@ -45,6 +59,8 @@ class Task:
     orders: list[dict[str, Any]]
     # 缺省 normal：老题库没写 tier 也不该报错，它只是没有安全档之分。
     tier: Tier = "normal"
+    # 缺省 train：老题库没写 split 全是训练题，行为和加这一列之前完全一致。
+    split: Split = "train"
     today: str = "2025-06-01"
     must_call: list[str] = field(default_factory=list)   # 必须调用过的工具
     must_not_call: list[str] = field(default_factory=list)

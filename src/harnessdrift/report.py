@@ -52,23 +52,37 @@ def curve_block(res: LoopResult) -> str:
     lo = max(0.0, lo)
     span = max(hi - lo, 1e-9)
 
+    has_ho = any(r.mean_holdout is not None for r in rounds)
+    # 没开留出集就不出这一列：一列全是「—」只会让读者以为哪里算丢了
+    head = (f"{'round':>6}  {'kind':<9} {'score':>7} {'±':>5}  {'solved':>6}  "
+            + ("holdout  " if has_ho else "") + "bar")
     lines = [
         "```",
-        f"{'round':>6}  {'kind':<9} {'score':>7} {'±':>5}  {'solved':>6}  bar",
-        "-" * (6 + 2 + 9 + 1 + 7 + 1 + 5 + 2 + 6 + 2 + BAR_WIDTH),
+        head,
+        "-" * (6 + 2 + 9 + 1 + 7 + 1 + 5 + 2 + 6 + 2 + (9 if has_ho else 0) + BAR_WIDTH),
     ]
     for r in rounds:
         frac = (r.mean - lo) / span
         n = max(0, min(BAR_WIDTH, round(frac * BAR_WIDTH)))
         bar = "█" * n + "·" * (BAR_WIDTH - n)
         mark = " " if r.kind == "base" else ("+" if r.improved else "~" if r.kind == "accepted" else "x")
+        ho = f"{r.mean_holdout:>7.2f}  " if (has_ho and r.mean_holdout is not None) else (
+            f"{'—':>7}  " if has_ho else "")
         lines.append(
             f"{r.round_id:>6}  {r.kind:<9} {r.mean:>7.2f} {r.std:>5.2f}  "
-            f"{r.solved:>4}/{n_tasks:<2} {mark} {bar}"
+            f"{r.solved:>4}/{n_tasks:<2} {ho}{mark} {bar}"
         )
     lines.append("```")
     lines.append("")
-    lines.append(f"满分 {n_tasks}。`+` 表示相对父树有超过噪声的上升，`~` 持平接受，`x` 被拒绝。")
+    if has_ho:
+        m = n_tasks - (base.n_holdout or 0)
+        lines.append(f"满分 {n_tasks}。`+` 表示相对父树有超过噪声的上升，`~` 持平接受，`x` 被拒绝。"
+                     f"**接受决策只看训练列 {m} 条**；留出列 {base.n_holdout} 条照常评测计分，"
+                     f"但不参与任何决定。")
+        lines.append("`holdout` 列是留出集得分（口径与 score 一致，满分 = 条数）：它**不参与任何接受决策**，"
+                     "只看它跟不跟着涨 —— 涨了叫泛化，不涨说明训练列的涨幅是背题换来的。")
+    else:
+        lines.append(f"满分 {n_tasks}。`+` 表示相对父树有超过噪声的上升，`~` 持平接受，`x` 被拒绝。")
     return "\n".join(lines)
 
 
@@ -85,6 +99,12 @@ def delta_block(res: LoopResult) -> str:
         f"| 抖动（std） | {base.std:.2f} | {best.std:.2f} | {best.std - base.std:+.2f} |",
         f"| 最佳轮次 | — | 第 {best.round_id} 轮 | — |",
     ]
+    if base.mean_holdout is not None:
+        # 放在最后一行，并显式标注"不参与决策"：否则读者会以为它是第六个可以权衡的指标。
+        lines.append(
+            f"| 留出集（不参与决策） | {base.mean_holdout:.2f} | {best.mean_holdout or 0:.2f} | "
+            f"**{(best.mean_holdout or 0) - base.mean_holdout:+.2f}** |"
+        )
     return "\n".join(lines)
 
 
@@ -216,6 +236,57 @@ def stopping_block(res: LoopResult) -> str:
     ])
 
 
+def holdout_block(res: LoopResult) -> str:
+    """留出集单独一节。
+
+    单独写而不是混在曲线表里，是因为它的**读法**和别的列不一样：
+    训练列涨了可能是背题，留出列涨了才是泛化。两列一起看看不出区别，
+    必须有一句话把"怎么读"写清楚，否则读者会默认它们是同一件事。
+    """
+    base, best = res.rounds[0], res.best
+    if base.mean_holdout is None:
+        return ""
+    n = base.n_holdout
+    db = (base.mean_holdout or 0.0)
+    ds = (best.mean_holdout or 0.0)
+    return "\n".join([
+        f"留出集 {n} 条，**从头到尾没进过提案端的失败样本**（每轮照常评测、照常计分，"
+        f"但提案端只看训练列的错法）。",
+        "",
+        "|  | 基线 | 最佳 | 变化 |",
+        "|---|---|---|---|",
+        f"| 训练列（{base.n_tasks - n} 条，参与决策） | {base.mean_train or 0:.2f} | "
+        f"{best.mean_train or 0:.2f} | **{(best.mean_train or 0) - (base.mean_train or 0):+.2f}** |",
+        f"| 留出列（{n} 条，不参与决策） | {db:.2f} | {ds:.2f} | "
+        f"**{ds - db:+.2f}** |",
+        "",
+        "怎么读：**留出列不涨而训练列涨，说明涨的是背题不是能力**。"
+        "留出列跟着涨，才能说这次改动真的泛化了；两列一起跌，那就是通用回退。",
+    ])
+
+
+def cost_block(res: LoopResult) -> str:
+    """token 账。
+
+    只报 token，不把 token 折算成钱：汇率（单价）是会变的外部事实，
+    写死在报告里就成了一个明天就假的数字。报告给的是可核算的量
+    （每轮 token、总 token），换算交给读者 —— 或者 `--max-tokens` 直接卡死上限。
+    """
+    rows = [r for r in res.rounds if (r.tokens or {}).get("total_tokens")]
+    if not rows:
+        return "（这次跑批没有 token 记录）"
+    total = sum(int(r.tokens.get("total_tokens", 0)) for r in rows)
+    lines = ["| 轮次 | prompt | completion | 合计 |", "|---|---|---|---|"]
+    for r in rows:
+        t = r.tokens or {}
+        lines.append(f"| {r.round_id} {r.kind} | {int(t.get('prompt_tokens', 0)):,} | "
+                     f"{int(t.get('completion_tokens', 0)):,} | {int(t.get('total_tokens', 0)):,} |")
+    lines.append("| **合计** | | | **{:,}** |".format(total))
+    lines += ["", "token 就是钱，所以它也是这套系统的成本上界："
+                  "`--max-tokens N` 一旦触到就停，不会跑完才发现超支。"]
+    return "\n".join(lines)
+
+
 def render(res: LoopResult, *, title: str = "HarnessDrift 自改进曲线") -> str:
     cfg = res.config
     base, best = res.rounds[0], res.best
@@ -233,6 +304,10 @@ def render(res: LoopResult, *, title: str = "HarnessDrift 自改进曲线") -> s
         f"相当于 {base.solved} → {best.solved} 条稳定通过）。"
         f"共 {len([r for r in res.rounds if r.kind != 'base'])} 轮尝试，"
         f"{len(res.accepted) - 1} 轮被接受。**",
+        *([f"（上面这个总分 = 训练列 {base.mean_train:.2f}→{best.mean_train:.2f}，"
+            f"留出列 {base.mean_holdout:.2f}→{best.mean_holdout:.2f}。"
+            f"**接受决策只用了训练列**，留出列是从头到尾没被优化过的那把尺子。）"]
+           if base.mean_holdout is not None else []),
         "",
         "## 2. 曲线",
         "",
@@ -253,6 +328,11 @@ def render(res: LoopResult, *, title: str = "HarnessDrift 自改进曲线") -> s
         "## 6. 停止条件",
         "",
         stopping_block(res),
+        "",
+        *(["## 7. 留出集", "", holdout_block(res), ""] if base.mean_holdout is not None else []),
+        "## 8. 成本",
+        "",
+        cost_block(res),
         "",
         "---",
         "",

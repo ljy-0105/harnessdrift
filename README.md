@@ -122,7 +122,7 @@ PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli export \
 
 ## 实测曲线
 
-两条，同一条改进器、同一个题库，差别只在接受规则。用来看"规则本身值多少钱"。
+三条，同一条改进器、同一个题库，差别只在接受规则和"分数怎么算"。用来看"规则本身值多少钱"。
 
 **`runs/curve3/`（当前默认规则：不退化 + 不改坏旧题）**
 
@@ -150,6 +150,26 @@ PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli export \
 
 同一套东西，第 1 轮 +1.33 就被收了 —— 代价是 T12、T24 从此稳定挂掉。
 这就是加回退规则的直接理由，`tests/test_loop.py::test_broke_stable_*` 锁着这条行为。
+
+**`runs/holdout1/`（训练 38 + 留出 12，接受规则只看训练列）**
+
+```
+ round  kind        score     ±  solved  holdout
+     0  base        42.33  0.47    39/50    9.67
+     1  accepted    46.67  0.47    45/50    9.67 +   ← 训练列 32.67→37.00，留出 0.00
+     2  rejected    46.00  0.00    44/50   10.00 x   ← 训练列掉 1 分
+     3  rejected    47.00  0.00    47/50   10.00 x   ← 训练列持平（strict 不收持平）
+ 停止：patience=2      总 token 4,525,785
+```
+
+这条曲线是留出集存在的理由。**训练列 +4.33，留出列 +0.00** ——
+第 1 轮那条补丁（SKILL.md 加一条规则 + 系统提示加一句硬要求）
+把 T02/T14/T18/T31/T33 这五条训练题修好了，而 12 条留出题一条都没动。
+只看总分，这轮是"显著改进"；加上留出列才看得出：**它改进的是这批题，不是这类能力**。
+
+第 3 轮更值得记：总分 47.00 比父树 46.67 **还高**，仍然被拒 ——
+因为那 0.33 全来自留出列，而留出列不参与决策。这个"看起来涨了其实没涨"
+正是留出列必须当尺子、不能当裁判的原因。
 
 ### 读这两条曲线时必须承认的三件事
 
@@ -287,6 +307,47 @@ harnessdrift loop --accept strict --safety-mode lock   --out runs/strict_lock
 被否决的轮次会写明"一票否决：T12 是 safety 档"。
 `dist/index.html` 是 `strict_lock` 的看板，`dist/veto.html` 是 v1 那条的。
 
+## 留出集：涨分是真本事，还是背题
+
+这一层解决的问题很具体：**提案端看过失败样本**，所以它完全可能写出一条只对这批题有效的规则。
+分数涨了，能力没涨，甚至更差 —— 这类错误在训练集上永远看不出来。
+
+做法是把 50 条题切成两列：
+
+| 列 | 条数 | 进提案端 | 参与接受决策 |
+|---|---|---|---|
+| 训练列 | 38 | ✅ 失败样本喂进去 | ✅ 只看这一列 |
+| 留出列 | 12 | ❌ 从不喂 | ❌ 只记分 |
+
+留出列**照常评测、照常记分**，但它的失败样本不进 `propose()`，它的分数也不进接受判断。
+这不是"再写一层校验"，而是唯一能回答"泛化了吗"的办法：如果它被用来做决策，
+它就被优化目标污染了，下次想看泛化就没有干净数据了。
+
+代码上的硬约束只有一行（`loop.py`）：提案端拿到的失败样本是
+`[t for t in failed if t.id in train_ids]`；留出列只进入 `_split_score()` 的报表。
+
+> 单测 `test_holdout_failures_never_reach_the_improver` 直接断言"留出题的原文不在
+> 改进器的提示词里"。这种不变量必须用测试钉住 —— 它坏掉的那天不会有任何报错，
+> 只会让所有结论悄悄变成自欺欺人。
+
+## 预算与回滚：让它敢在线上跑
+
+自改进系统真正的风险不是"没涨分"，是"涨了分但顺手改坏了别的东西，而没人发现"。
+所以除了接受规则，还需要两件工程上的刹车。
+
+**一、硬预算。** `--max-tokens N` 累计求解器 + 改进器的 token，超出即停。
+查两次：每轮开头查一次，**评测前再查一次** —— 评测是最贵的一步
+（38 题 × 3 次 = 114 次调用），只在开头查等于"发现超预算时已经花掉两倍"。
+
+**二、一键回滚。** `harnessdrift rollback --run runs/x --to best --target harness/live`
+
+- 整棵树替换，不打反向补丁：反向补丁要求能精确反演，而一轮补丁可能是
+  REPLACE 整篇 + 若干 DELETE，反演出来的东西未必等于父树；替换则一定等于那份快照。
+- **先备份再写**，备份落在 `.rollback-backup-<时间戳>/`。回滚自己也可能回错，
+  没有备份的"一键回滚"只是换一种方式丢东西。
+- 拒绝回滚到 `_rejected/roundN`：被规则否掉的候选不该变成线上状态，
+  回滚不是绕过接受规则的后门。
+
 ## 目录
 
 ```
@@ -304,8 +365,9 @@ src/harnessdrift/
   loop.py       多轮调度：接受规则 + 五个停止条件
   ablate.py     归因：把一轮补丁拆成原子，逐条单独评测
   compare.py    消融：几条曲线并排看
+  rollback.py   回滚：整棵树退回某个已知状态，先备份再写
   report.py     生成 REPORT.md
-  cli.py        run / loop / ablate / compare / show-prompt / init
+  cli.py        run / loop / ablate / compare / rollback / show-prompt / init
 tests/
   test_contracts.py       路径、编辑、反作弊契约
   test_tools_and_judge.py 工具层与判分
@@ -314,6 +376,8 @@ tests/
   test_ablate.py          拆原子、合回去、交互效应
   test_compare.py         三档对照报告
   test_tokens.py          用量统计（第一次评测也要记到、记的是增量）
+  test_holdout_rollback.py 留出集不泄漏 + 回滚整树替换/备份/拒绝回退被拒轮
+  test_report_holdout.py  报告里留出列的画法与措辞
 ```
 
 ## 分步交接文档

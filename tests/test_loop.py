@@ -55,9 +55,16 @@ class ScriptedLLM:
         self.patches = list(patches or [])
         self.improver_calls = 0
         self.solver_calls = 0
+        # 记下每次调用收到的 system 提示词：留出集测试要检查"什么被泄漏给了提案端"
+        self.seen: list[str] = []
+        # 假装每次调用花 100 token：token 预算测试需要一个真实记账的对象
+        self.usage_total: dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0,
+                                            "total_tokens": 0}
 
     def chat(self, messages, **kw):  # noqa: ANN001, ANN003
         system = messages[0]["content"] if messages else ""
+        self.seen.append("\n".join(m.get("content", "") for m in messages))
+        self.usage_total["total_tokens"] += 100
         if "harness 工程师" in system:
             self.improver_calls += 1
             if not self.patches:
