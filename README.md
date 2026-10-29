@@ -157,6 +157,9 @@ PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli export \
 `web/smoke.cjs` 在 node 里跑一遍渲染逻辑（不需要浏览器），CI 里会跑，
 防止"导出成功但页面白屏"这种只有真人打开才发现的问题。
 
+`dist/` 通过 `.github/workflows/pages.yml` 发布成 GitHub Pages（Settings → Pages →
+Source 选 **GitHub Actions**，只点一次）。或者直接 `git clone` 后双击 `dist/index.html`。
+
 ## 实测曲线
 
 三条，同一条改进器、同一个题库，差别只在接受规则和"分数怎么算"。用来看"规则本身值多少钱"。
