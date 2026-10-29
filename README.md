@@ -592,6 +592,7 @@ tests/
 - **`PROGRESS.md`** —— 现在停在哪、数字各是多少、下一步从哪接
 - **`runs/SAFETY_TRADEOFF.md`** —— 单题实验：哪一句买的分、哪一句踩的雷
 - `docs/internal/HANDOFF-STEP*.md` —— 分步构建时的交接笔记（施工过程，非接口文档）
+- `CONTRIBUTING.md` —— 三条硬规矩（不许改历史数字 / 新结论要带能失败的测试 / 离线优先）
 - `LICENSE` —— MIT
 
 ## 下一步（第 5 步）
