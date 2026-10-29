@@ -20,8 +20,8 @@ classifiers = [
 harnessdrift = "harnessdrift.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/<you>/harnessdrift"
-Issues = "https://github.com/<you>/harnessdrift/issues"
+Homepage = "https://github.com/ljy-0105/harnessdrift"
+Issues = "https://github.com/ljy-0105/harnessdrift/issues"
 
 [project.optional-dependencies]
 llm = ["openai>=1.40"]
