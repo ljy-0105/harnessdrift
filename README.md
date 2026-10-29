@@ -1,5 +1,7 @@
 # HarnessDrift — 让客服 agent 的提示词自己迭代，并且**能被证伪**
 
+[![ci](https://github.com/ljy-0105/harnessdrift/actions/workflows/ci.yml/badge.svg)](https://github.com/ljy-0105/harnessdrift/actions/workflows/ci.yml) [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE) [![python](https://img.shields.io/badge/python-3.11%2B-blue.svg)](pyproject.toml)
+
 > **English:** a self-improving harness loop for a customer-service agent. The model stays
 > frozen; only the harness (system prompt / skill docs / tool descriptions) evolves, scored by
 > a deterministic 50-task grader. The deliverable is not a better prompt — it is that every
