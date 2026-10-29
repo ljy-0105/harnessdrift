@@ -14,12 +14,11 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-from harnessdrift.agent import RunResult, load_harness_prompt  # noqa: E402
-from harnessdrift.evaluate import judge, score_all  # noqa: E402
-from harnessdrift.guards import PromptLeakError, assert_prompt_describes_work  # noqa: E402
-from harnessdrift.paths import read_tree  # noqa: E402
-from harnessdrift.tasks import load_tasks  # noqa: E402
-from harnessdrift.tools import Toolkit  # noqa: E402
+from harnessdrift.agent import RunResult, load_harness_prompt
+from harnessdrift.evaluate import judge, score_all
+from harnessdrift.paths import read_tree
+from harnessdrift.tasks import load_tasks
+from harnessdrift.tools import Toolkit
 
 TASKS = ROOT / "data" / "tasks_ecommerce_after_sales.json"
 BASE = ROOT / "harness" / "base"

@@ -12,21 +12,21 @@ import pytest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from harnessdrift.edits import (  # noqa: E402
+from harnessdrift.edits import (
     EditError,
     apply_edits,
     diff_summary,
     parse_patch,
     render_patch,
 )
-from harnessdrift.guards import (  # noqa: E402
+from harnessdrift.guards import (
     LeakError,
     PromptLeakError,
     assert_no_grader_verdicts,
     assert_prompt_describes_work,
     is_leaked,
 )
-from harnessdrift.paths import (  # noqa: E402
+from harnessdrift.paths import (
     PathEscapeError,
     normalize_rel,
     read_tree,

@@ -26,8 +26,9 @@ n 个原子有 2^n 个子集。实际 n 一般在 3~8，但每个子集都要跑
 
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Mapping, Sequence
+from typing import Any
 
 from .ablate import Atom, apply_all, split_atoms
 from .runner import EvalResult, evaluate_tree
@@ -144,7 +145,7 @@ def rescue_vetoed(
         for atom in candidates:
             if len(res.attempts) >= max_variants:
                 break
-            drop = dropped + [atom.index]
+            drop = [*dropped, atom.index]
             keep = [a for a in atoms if a.index not in drop]
             tree = apply_all(parent_tree, cand_tree, keep)
             ev: EvalResult = evaluate_tree(

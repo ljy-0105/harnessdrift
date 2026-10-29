@@ -1,9 +1,27 @@
 [project]
 name = "harnessdrift"
 version = "0.1.0"
-description = "Propose/Probe/Compose self-improving harness skeleton, RSI-flavoured"
+description = "A falsifiable self-improving harness loop for customer-service agents (RSI skeleton)"
+readme = "README.md"
+license = { file = "LICENSE" }
 requires-python = ">=3.11"
 dependencies = []
+keywords = ["llm", "agents", "self-improvement", "evaluation", "prompt-engineering", "rsi"]
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+]
+
+[project.scripts]
+harnessdrift = "harnessdrift.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/<you>/harnessdrift"
+Issues = "https://github.com/<you>/harnessdrift/issues"
 
 [project.optional-dependencies]
 llm = ["openai>=1.40"]
@@ -19,3 +37,17 @@ where = ["src"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 addopts = "-q"
+
+[tool.ruff]
+target-version = "py311"
+line-length = 110
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "RUF"]
+# RUF001/002/003：中文字符在注释和文案里有全角标点，这不是错字
+ignore = ["RUF001", "RUF002", "RUF003", "E501", "B905"]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试里 import 之后要构造假树/改 sys.path，E402 在这里是布局而不是问题
+"tests/*" = ["E402", "B017"]

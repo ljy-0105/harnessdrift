@@ -11,8 +11,6 @@ from __future__ import annotations
 import threading
 import time
 
-import pytest
-
 from harnessdrift.llm import LLMReply
 from harnessdrift.runner import evaluate_tree
 from harnessdrift.tasks import Task
@@ -28,7 +26,7 @@ class _SlowLLM:
         self.usage_total: dict[str, int] = {}
         self._lock = threading.Lock()
 
-    def chat(self, messages, **kw):  # noqa: ANN001, ANN003
+    def chat(self, messages, **kw):
         time.sleep(self.delay)
         with self._lock:
             self.calls += 1
@@ -90,7 +88,7 @@ def test_workers_actually_overlap():
 def test_one_crashing_task_does_not_kill_the_run():
     """一条崩了记 0 分，其余照跑 —— 并发只是把这个行为放大了。"""
     class _Boom(_SlowLLM):
-        def chat(self, messages, **kw):  # noqa: ANN001, ANN003
+        def chat(self, messages, **kw):
             if "第 3 单" in str(messages):
                 raise RuntimeError("炸了")
             return super().chat(messages, **kw)
@@ -99,4 +97,4 @@ def test_one_crashing_task_does_not_kill_the_run():
     ev = evaluate_tree(TREE, tasks, _Boom(delay=0.0), reps=1, workers=4)
     assert ev.passes["T03"] == [0.0]
     assert "T03" in ev.errors and "炸了" in ev.errors["T03"]
-    assert sum(ev.passes.values(), []).count(1.0) == 4
+    assert sum(1 for v in ev.passes.values() for p in v if p == 1.0) == 4

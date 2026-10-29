@@ -1,27 +1,53 @@
-# HarnessDrift — 自改进 agent harness（RSI 骨架）
+# HarnessDrift — 让客服 agent 的提示词自己迭代，并且**能被证伪**
 
-一个让**提示词自己迭代**的研究原型：agent 在 38 道带确定性判分的售后题上跑分，
-失败样本交给改进器产出补丁，补丁经守卫校验后应用到新树，再评测、再迭代。
-**不训练模型，只让 harness（提示词 / 技能文档 / 工具描述）在评测反馈下演化。**
-曲线上的每个点都带 ±，`runs/` 里是原始 json，README 的每个数字都能对回去。
+> **English:** a self-improving harness loop for a customer-service agent. The model stays
+> frozen; only the harness (system prompt / skill docs / tool descriptions) evolves, scored by
+> a deterministic 50-task grader. The deliverable is not a better prompt — it is that every
+> claimed gain can be **falsified**: a placebo run with no improvement signal swings by ±4.7
+> points per round, so the +4.33 curve is published together with its noise band, and a safety
+> regression vetoes the round no matter how much the mean rose. Fully offline-testable
+> (142 tests, no API key in CI); every number below maps back to a JSON file under `runs/`.
+
+一个让**提示词自己迭代**的研究原型：agent 在 50 道带确定性判分的售后题上跑分
+（38 训练 / 12 留出），失败样本交给改进器产出补丁，补丁经守卫校验后应用到新树，
+再评测、再迭代。**不训练模型，只让 harness（提示词 / 技能文档 / 工具描述）在评测反馈下演化。**
 
 思路来自 [google-research/harness2](https://github.com/google-research/harness2)（Propose / Probe / Compose 骨架）
 与 [google-research/dream-rsi](https://github.com/google-research/dream-rsi)（探测器调度）。
 
-**实测：31.67 → 36.00（+4.33），38 题 × 3 次 × 5 轮，20 分钟。**
-成本约 ¥1.4 —— 这是按实测 5,087 token/题 × 570 题估的，不是账单；早期曲线的 `curve.json`
-里还没有用量字段，`total_tokens` 是后来才接的（见「实测曲线」一节的说明）。
+## 真正的产出：三次自我证伪
 
-三个能独立讲清楚的结论：
+大多数"提示词自改进"项目止步于一条向上的曲线。这里多做了一步 ——
+**先证明那条曲线值不值得信**，然后才谈改进。
 
-1. **回退规则**。只看均值的接受规则会收下"涨 1 分但卖掉一道安全题"的补丁。第 2、3 轮均值都高于基线，
-   却被拦下 —— 它们各自把一道原本稳定通过的题变成稳定挂掉（T07/T34、T27/T34）。
-   **拿旧能力换新能力不算改进。**
-2. **原子归因**。第 1 轮 +4.00 里，最强单点只贡献 +2.33，**+1.67 是四条一起才有的交互效应** ——
-   只报总分的展示说不清这件事。
-3. **消融**。三档接受规则跑同一套题：`always` +3.00 / `strict` +2.67 / `nonregress` +0.00。
-   默认规则一分没涨，因为它为了保 T12 拒绝了两轮 +4 分的补丁。报告里写的是
-   "这张表只支持接受规则需要论证，不支持排名"。
+| # | 发现 | 机制 | 证据 |
+|---|---|---|---|
+| 1 | 均值 +5.00 的那一轮，把一道安全题从 3/3 打到 0/3 | 任务分档 + 一票否决 + 锁定名单 | `runs/strict_veto` |
+| 2 | 没有改进信号时单轮 Δ 也能摆动 **−4.67 ~ +2.67**；同一棵树重跑极差 **3.33 分** | 安慰剂对照 + 噪声区间 + 留出集 | `runs/placebo1`、`runs/noise_b1..3` |
+| 3 | 被否决的轮里九成改动是好的，只有一条原子有毒 | 原子归因 + 原子级抢救 | `runs/rescue_replay` |
+
+第 2 条是最不舒服的一条：它把早期"31.67 → 36.00（+4.33）"按回了噪声区间里。
+那个结果仍然留着（它是本项目的起点，也最诚实），但**不再当成果来卖** ——
+详见「安慰剂对照与噪声区间」，那里把两套数字摆在了一起。
+
+第 3 条的实测：对一个真实被否决的候选（6 个原子），自动试删 4 次找到毒源
+`tool_descriptions/action_vs_confirm.md`，删掉后全量 **46.00±0.82，与原候选一分不差**，
+T12 从 0/3 回到 3/3。探测成本 12 次调用，约等于一次全量评测的 8%。
+
+> 想用一条曲线看懂这个项目：看 `runs/holdout1` ——
+> 训练列 +4.33、留出列 **+0.00**。涨的全是它被允许看见的那批题。
+
+## 读哪里
+
+| 你想知道 | 去哪儿 |
+|---|---|
+| 这项目到底证明了什么 | 上面「真正的产出」三行表 |
+| 怎么跑起来、要花多少钱 | 「跑起来」 |
+| 数字可不可信 | 「安慰剂对照与噪声区间」、「留出集」 |
+| 为什么一个补丁会偷偷卖掉能力 | 「分档」、「原子级抢救」 |
+| 代码怎么组织 | 「三条契约」、「代码地图」 |
+| 还没做什么 | 「下一步」 |
+
 
 ## 为什么先做这一层
 
@@ -69,33 +95,44 @@
 ## 跑起来
 
 ```bash
+git clone <this repo> && cd harnessdrift
 python -m venv .venv
-./.venv/Scripts/python.exe -m pip install -r requirements.txt
-./.venv/Scripts/python.exe -m pytest tests -q
+./.venv/Scripts/python.exe -m pip install -e ".[dev]"   # Linux/macOS: .venv/bin/python
+./.venv/Scripts/python.exe -m pytest                    # 142 passed，全离线
 ```
 
-预期：**142 passed**（全部离线，不访问网络、不花 token）。
+预期：**142 passed**（不访问网络、不花 token、不需要 API key —— CI 里就是不配 key 跑的）。
+
+装完之后有 `harnessdrift` 这个命令（`pip install -e ".[dev]"` 会注册入口点）。
+不想装也行，把 `harnessdrift` 换成 `PYTHONPATH=src python -m harnessdrift.cli` 即可。
 
 ```bash
-# 单次基线（先 --limit 3 验证链路）
-PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli run --repeat 3 --out runs/base.json
+# 单次基线（先 --limit 3 验证链路；真跑全量要 API key）
+export LLM_API_KEY=...          # Windows: $env:LLM_API_KEY="..."
+harnessdrift run --repeat 3 --out runs/base.json
 
-# 一条完整的自改进曲线
-PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli loop \
-    --reps 3 --max-rounds 4 --patience 2 --out runs/curve1
+# 一条完整的自改进曲线（默认：不退化 + 不改坏旧题）
+harnessdrift loop --reps 3 --max-rounds 4 --patience 2 --out runs/curve1
 
 # 归因：这轮补丁里是哪一条在起作用（N 个原子 = N+2 次全量评测，最贵的一步）
-PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli ablate \
-    --parent harness/base --cand runs/curve1/round1 --reps 3 --out runs/attr
+harnessdrift ablate --parent harness/base --cand runs/curve1/round1 --reps 3 --out runs/attr
 
 # 消融：几条曲线并排看
-PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli compare \
-    --curves runs/ablate_strict,runs/ablate_nonregress,runs/ablate_always \
-    --out runs/ABLATION.md
+harnessdrift compare --curves runs/ablate_strict,runs/ablate_nonregress,runs/ablate_always     --out runs/ABLATION.md
+
+# 对一个被否决的候选做原子级抢救
+harnessdrift rescue --parent harness/base --cand runs/x/_rejected/round1 --reps 3
+
+# 把已跑过的曲线导成一个静态看板（不联网、内联数据）
+harnessdrift export --run runs/curve3 --attr runs/attr_curve3 --out dist/index.html
 ```
 
 `loop` 的产物在 `runs/curve1/`：`REPORT.md`（人看）、`curve.json`（机器读）、
 `roundN/`（每轮接受的树）、`_rejected/`（被拒候选 + 原因）、`best/`（最佳树）。
+
+> 每一步都要调模型，全量一轮约 15 分钟 / 4.5M token（`--workers 8` 可压到 ~4 分钟）。
+> 只想看数字不想花钱：`runs/` 里所有曲线的 json 都已提交，
+> `harnessdrift export` 和 `pytest` 都不需要 key。
 
 ## 看板
 
@@ -114,7 +151,7 @@ PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli export \
 双击就能开（`file://` 不受 CORS 限制）。`dist/index.html` 已提交，
 也可以把 `dist/` 直接挂到 GitHub Pages。
 
-页面五块：曲线（被拒的轮次也画）、每轮补丁、38 题矩阵、原子归因、接受规则消融。
+页面五块：曲线（被拒的轮次也画）、每轮补丁、全题矩阵（50 条）、原子归因、接受规则消融。
 **看板是证据的投影，不是新的数据源** —— 每个数字都能在 `runs/` 的 json 里对回出处。
 
 `web/smoke.cjs` 在 node 里跑一遍渲染逻辑（不需要浏览器），CI 里会跑，
@@ -123,6 +160,10 @@ PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli export \
 ## 实测曲线
 
 三条，同一条改进器、同一个题库，差别只在接受规则和"分数怎么算"。用来看"规则本身值多少钱"。
+
+> ⚠️ 下面 `curve3` / `curve2` 的 `solved` 分母是 **38**，因为那两条跑在扩充留出集**之前**的题库上；
+> 后来加了 12 条留出题，分母变成 50。历史数字保持原样（改数字就是伪造历史），
+> 但**不要跨分母比较**。
 
 **`runs/curve3/`（当前默认规则：不退化 + 不改坏旧题）**
 
@@ -238,7 +279,7 @@ PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli export \
 
 上面消融表里第 1 条被标成"该被质疑的地方"，这一节就是去处理它。
 
-给每条任务加了 `tier` 字段（`safety` / `normal`）。目前 38 条里有 7 条 safety，
+给每条任务加了 `tier` 字段（`safety` / `normal`）。目前 50 条里有 7 条 safety，
 判定标准是**答错的后果不是"少赚一单"而是"有人受损"**：拿别人订单号退款（T12）、
 没核实就承诺退（T04）、超出售后期强行开单（T10）、泄露他人地址（T13）、
 承诺赔付金额（T20）、主动提供绕过政策的办法（T31）、编造没查过的物流（T37）。
@@ -337,7 +378,7 @@ harnessdrift loop --accept strict --safety-mode lock   --out runs/strict_lock
 
 **一、硬预算。** `--max-tokens N` 累计求解器 + 改进器的 token，超出即停。
 查两次：每轮开头查一次，**评测前再查一次** —— 评测是最贵的一步
-（38 题 × 3 次 = 114 次调用），只在开头查等于"发现超预算时已经花掉两倍"。
+（50 题 × 3 次 = 150 次调用），只在开头查等于"发现超预算时已经花掉两倍"。
 
 **二、一键回滚。** `harnessdrift rollback --run runs/x --to best --target harness/live`
 
@@ -426,7 +467,7 @@ T12（没有订单号、可能是诈骗的单子）从 3/3 变成 0/3。
 `loop.py` 在调 `propose()` 前算好这三个列表。提示词里的话很直白：
 
 ```
-## 现在做得对、不许弄坏的部分
+## 把"别弄坏什么"喂给提案端：三段提示词
 这些任务现在是**稳定通过**的：T01, T03, ...
 它们不在失败样本里，所以你从样本上看不出自己会不会踩到它们。
 其中 T12, T27 是**安全档**：这几条一旦挂掉，整轮改进直接作废（一票否决），涨多少分都不收。
@@ -514,7 +555,7 @@ PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli loop     --holdout
 > （第 1 轮 45.67 直接收了）。抢救是给"被拦下的轮"用的，不是每轮都跑。
 > 真正的验证在 `runs/rescue_replay`：用的是 `attr_feed1` 里真实被拦下的那棵树。
 
-## 目录
+## 代码地图
 
 ```
 src/harnessdrift/
@@ -522,7 +563,7 @@ src/harnessdrift/
   edits.py      diff 提案的解析与应用
   guards.py     反作弊三件套
   tools.py      模拟电商售后系统（订单 / 退货 / 转人工）
-  tasks.py      38 条任务，每条带 why
+  tasks.py      50 条任务，每条带 why / tier / split
   agent.py      「接单 → 调工具 → 答复」循环
   evaluate.py   L1 确定性评测（期望动作 / 工具调用 / 编造 / 禁语）
   llm.py        OpenAI 兼容适配器，重试在这一层
@@ -546,14 +587,12 @@ tests/
   test_report_holdout.py  报告里留出列的画法与措辞
 ```
 
-## 分步交接文档
+## 文档地图
 
-- **`PROGRESS.md` 先读这个** —— 现在停在哪、数字各是多少、下一步从哪接
-- `HANDOFF-STEP0.md` 骨架与三条契约
-- `HANDOFF-STEP1.md` 客服 agent + 评测器
-- `HANDOFF-STEP3.md` 闭环 + 安全档的锁定名单
-- `HANDOFF-STEP4.md` 归因与消融：原子怎么切、对照怎么读
-- `runs/SAFETY_TRADEOFF.md` 单题实验：哪一句买的分、哪一句踩的雷
+- **`PROGRESS.md`** —— 现在停在哪、数字各是多少、下一步从哪接
+- **`runs/SAFETY_TRADEOFF.md`** —— 单题实验：哪一句买的分、哪一句踩的雷
+- `docs/internal/HANDOFF-STEP*.md` —— 分步构建时的交接笔记（施工过程，非接口文档）
+- `LICENSE` —— MIT
 
 ## 下一步（第 5 步）
 

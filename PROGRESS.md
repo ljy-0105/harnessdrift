@@ -1,7 +1,7 @@
 # 进度快照
 
 > 保存于 2026-10-28 19:50 · 126 tests passed · 最新 commit 见 `git log -1`
-> 这份文件是给人看"现在停在哪、下一步从哪接"的。技术细节在各 `HANDOFF-STEP*.md`，数字出处在下面对应的 `runs/`。
+> 这份文件是给人看"现在停在哪、下一步从哪接"的。技术细节在各 `docs/internal/HANDOFF-STEP*.md`，数字出处在下面对应的 `runs/`。
 
 ## 一句话
 
@@ -12,13 +12,13 @@
 
 | 步骤 | 内容 | 落点 |
 |---|---|---|
-| 0 | 骨架 + 三条契约（路径归一化 / 补丁格式 / 反作弊） | `HANDOFF-STEP0.md` |
-| 1 | 电商售后客服 agent + 38 题评测器（L1 确定性判分） | `HANDOFF-STEP1.md` |
+| 0 | 骨架 + 三条契约（路径归一化 / 补丁格式 / 反作弊） | `docs/internal/HANDOFF-STEP0.md` |
+| 1 | 电商售后客服 agent + 38 题评测器（L1 确定性判分） | `docs/internal/HANDOFF-STEP1.md` |
 | 2 | PROPOSE：失败样本 → 补丁 → 守卫 → 新树 | `src/harnessdrift/propose.py` |
-| 3 | 闭环：接受规则 + 五个停止条件 + REPORT.md | `HANDOFF-STEP3.md` |
-| 4 | 归因（拆原子）+ 消融（多曲线对照） | `HANDOFF-STEP4.md` |
+| 3 | 闭环：接受规则 + 五个停止条件 + REPORT.md | `docs/internal/HANDOFF-STEP3.md` |
+| 4 | 归因（拆原子）+ 消融（多曲线对照） | `docs/internal/HANDOFF-STEP4.md` |
 | 5 | 静态看板 export（单文件 HTML，CI 里跑渲染冒烟） | `web/template.html` |
-| 6 | **安全题分档**：`tier` + 锁定名单 + 一票否决 | `HANDOFF-STEP3.md` §2 |
+| 6 | **安全题分档**：`tier` + 锁定名单 + 一票否决 | `docs/internal/HANDOFF-STEP3.md` §2 |
 | 7 | **留出集**：12 条 H 题只计分、不进提案端、不参与决策 | `README.md` §留出集 |
 | 8 | **硬预算**：`--max-tokens`，每轮开始与评测前各查一次 | `loop.py` |
 | 9 | **一键回滚**：整树替换 + 先备份 + 拒绝回退到被拒轮 | `rollback.py` |

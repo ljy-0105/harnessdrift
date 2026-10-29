@@ -29,7 +29,7 @@ class _Recorder:
         self.systems: list[str] = []
         self.usage_total: dict[str, int] = {"total_tokens": 0}
 
-    def chat(self, messages, **kw):  # noqa: ANN001, ANN003
+    def chat(self, messages, **kw):
         system = messages[0]["content"] if messages else ""
         body = "\n".join(m.get("content", "") for m in messages)
         self.systems.append(system)

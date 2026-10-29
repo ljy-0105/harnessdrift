@@ -15,12 +15,11 @@
 """
 from __future__ import annotations
 
-import json
 import re
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, field
-from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 from .agent import RunResult
 from .edits import apply_edits, parse_patch
@@ -71,7 +70,7 @@ def collect_failures(
     """
     seen: set[str] = set()
     out: list[FailedSample] = []
-    for task, res, score, toolkit in results:
+    for task, res, score, _toolkit in results:
         if score.value >= 1.0 or task.id in seen:
             continue
         seen.add(task.id)
@@ -283,7 +282,7 @@ def propose(
     if reply.truncated:
         trunc = (f"改进器输出被截断（finish_reason=length, "
                  f"{reply.usage.get('completion_tokens')} tokens）")
-        messages = messages + [
+        messages = [*messages,
             {"role": "assistant", "content": reply.text},
             {"role": "user", "content":
                 "你的输出被截断了，因为 REPLACE 要求给出整个文件的新内容，你把原文全抄了一遍。\n"
@@ -312,7 +311,7 @@ def propose(
         try:
             edits = parse_patch(patch_text)
             new_tree = apply_edits(parent_tree, edits)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             warnings.append(f"第 {attempt + 1} 次解析失败：{e}")
             if attempt == max_repair:
                 return Proposal(str(dest), patch_text, warnings=warnings, applied=False)
@@ -340,7 +339,7 @@ def propose(
         # 允许它优化提示词，不允许它意识到自己正在被考。
         try:
             assert_prompt_describes_work(new_tree)
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             warnings.append(str(e))
             return Proposal(str(dest), patch_text, warnings=warnings, applied=False)
 

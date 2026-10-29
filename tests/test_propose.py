@@ -10,9 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from harnessdrift.propose import check_patch_scope, _extract_patch
 from harnessdrift.llm import LLMReply
-
+from harnessdrift.propose import _extract_patch, check_patch_scope
 
 BASE_TREE = {
     "systemprompt.md": "# 你是客服\n\n## 原则\n1. 先查后答。\n",
@@ -91,7 +90,7 @@ class _FakeLLM:
         self.replies = list(replies)
         self.calls = 0
 
-    def chat(self, messages, temperature=None, **kw):  # noqa: ANN001
+    def chat(self, messages, temperature=None, **kw):
         self.calls += 1
         text = self.replies.pop(0) if self.replies else ""
         return LLMReply(text=text, tool_calls=[], raw={}, usage={})
@@ -115,7 +114,7 @@ def test_propose_writes_new_round_and_never_touches_parent(tmp_path: Path):
     from harnessdrift.propose import propose
 
     new_prompt = "# 你是客服\n\n## 原则\n1. 先查后答。\n2. 客户说想退就是委托。\n"
-    llm = _FakeLLM([f"### REPLACE systemprompt.md\n" + "\n".join(
+    llm = _FakeLLM(["### REPLACE systemprompt.md\n" + "\n".join(
         "    " + ln for ln in new_prompt.splitlines()) + "\n"])
     dest = tmp_path / "round1"
 
@@ -173,7 +172,7 @@ def test_truncated_output_is_rejected_not_saved(tmp_path: Path):
     from harnessdrift.propose import propose
 
     class _TruncatingLLM:
-        def chat(self, messages, **kw):  # noqa: ANN001
+        def chat(self, messages, **kw):
             return LLMReply(
                 text="### REPLACE systemprompt.md\n    # 半句话",
                 tool_calls=[], raw={}, usage={"completion_tokens": 1200},
@@ -199,7 +198,7 @@ def test_truncation_retries_with_small_patch_before_giving_up(tmp_path: Path):
         def __init__(self) -> None:
             self.calls: list[str] = []
 
-        def chat(self, messages, **kw):  # noqa: ANN001
+        def chat(self, messages, **kw):
             self.calls.append(messages[-1]["content"])
             if len(self.calls) == 1:
                 return LLMReply(text="### REPLACE systemprompt.md\n    # 半句话",

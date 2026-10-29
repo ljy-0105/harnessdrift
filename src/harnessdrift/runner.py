@@ -10,8 +10,9 @@ propose 拿到的证据不是同一批对象，导致工具调用记录对不上
 from __future__ import annotations
 
 import time
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any
 
 from .agent import RunResult, run_task
 from .evaluate import TaskScore, judge
@@ -134,13 +135,13 @@ def evaluate_tree(
 
     def _one(job: tuple[int, int, Task]):
         """跑一条，返回 (分数, RunResult, TaskScore, toolkit) 或异常。"""
-        rep, idx, t = job
+        _rep, _idx, t = job
         toolkit = t.build_toolkit()
         r = run_task(tree, t.message, toolkit, llm, verbose=verbose)
         return judge(t, r, toolkit), r, toolkit
 
     def _record(job, outcome) -> None:
-        rep, idx, t = job
+        rep, idx, _t = job
         if isinstance(outcome, BaseException):
             # 单条崩掉不能带停整个评测：那一轮已被污染的分数还不如显式记 0。
             slots[idx * reps + rep] = (0.0, None, None, outcome)
@@ -152,7 +153,7 @@ def evaluate_tree(
         for job in jobs:
             try:
                 _record(job, _one(job))
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 _record(job, e)
             if on_task:
                 on_task(job[2].id, job[0], len(tasks), slots[job[1] * reps + job[0]][0])
@@ -165,7 +166,7 @@ def evaluate_tree(
                 job = futs[fut]
                 try:
                     outcome = fut.result()
-                except Exception as e:  # noqa: BLE001
+                except Exception as e:
                     outcome = e
                 _record(job, outcome)
                 if on_task:

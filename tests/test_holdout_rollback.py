@@ -5,15 +5,13 @@
 """
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 import pytest
 
-from harnessdrift.loop import run_loop, _split_score
+from harnessdrift.loop import _split_score, run_loop
 from harnessdrift.rollback import apply_rollback, plan_rollback
 from harnessdrift.tasks import Task
-
 from test_loop import MAGIC_A, MAGIC_B, ScriptedLLM, _patch_add
 
 BASE_PROMPT = "# 你是客服\n\n## 原则\n1. 先查后答。\n"

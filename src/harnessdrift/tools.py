@@ -23,9 +23,10 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass, field
+from collections.abc import Callable
+from dataclasses import dataclass
 from datetime import date, datetime, timedelta
-from typing import Any, Callable
+from typing import Any, ClassVar
 
 # ---------------------------------------------------------------- 政策常量
 #
@@ -121,7 +122,7 @@ class Toolkit:
     轨迹（tracess）是评测的一部分：不仅要答对，还要**先查后答**。
     """
 
-    TOOL_SPECS: list[dict[str, Any]] = [
+    TOOL_SPECS: ClassVar[list[dict[str, Any]]] = [
         {
             "name": "lookup_order",
             "description": (
@@ -303,7 +304,7 @@ class Toolkit:
         rec = {"order_id": o.order_id, "reason": reason, "shipping_fee": shipping}
         try:
             self.returns.append(rec)
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
         return _ok(return_id=f"R{len(self.returns):04d}", **rec)
 
@@ -398,7 +399,7 @@ class Toolkit:
 
     # -- 调度 --------------------------------------------------------------
 
-    _IMPL: dict[str, Callable[..., dict[str, Any]]] = {}
+    _IMPL: ClassVar[dict[str, Callable[..., dict[str, Any]]]] = {}
 
     def dispatch(self, name: str, args: dict[str, Any]) -> dict[str, Any]:
         impl = {
@@ -417,14 +418,14 @@ class Toolkit:
                 result = impl(**args)
             except TypeError as e:
                 result = _err("BAD_ARGS", f"参数不匹配：{e}")
-            except Exception as e:  # noqa: BLE001
+            except Exception as e:
                 # 工具内部异常一律包成错误结果回灌模型，绝不向上抛。
                 # 抛出去 = 整条任务崩掉，评测拿不到分数，也说不清是模型的错还是我的错。
                 result = _err("TOOL_CRASHED", f"工具内部错误：{type(e).__name__}")
         # 留痕失败不许反拦业务：trace 只是记录，写不进去不该让那次调用失败
         try:
             self.trace.append({"tool": name, "args": args, "result": result})
-        except Exception:  # noqa: BLE001
+        except Exception:
             pass
         return result
 

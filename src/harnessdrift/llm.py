@@ -151,7 +151,7 @@ class LLM:
                 )
                 self._account(reply.usage)
                 return reply
-            except Exception as e:  # noqa: BLE001 - 网络/限流都走同一策略
+            except Exception as e:
                 last = e
                 wait = 2**attempt
                 print(f"  [llm] attempt {attempt + 1} failed: {type(e).__name__}: {e}; "

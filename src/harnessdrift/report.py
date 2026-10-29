@@ -20,10 +20,10 @@
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Sequence
 
-from .loop import LoopResult, Round
+from .loop import LoopResult
 
 BAR_WIDTH = 44
 
@@ -281,7 +281,7 @@ def cost_block(res: LoopResult) -> str:
         t = r.tokens or {}
         lines.append(f"| {r.round_id} {r.kind} | {int(t.get('prompt_tokens', 0)):,} | "
                      f"{int(t.get('completion_tokens', 0)):,} | {int(t.get('total_tokens', 0)):,} |")
-    lines.append("| **合计** | | | **{:,}** |".format(total))
+    lines.append(f"| **合计** | | | **{total:,}** |")
     lines += ["", "token 就是钱，所以它也是这套系统的成本上界："
                   "`--max-tokens N` 一旦触到就停，不会跑完才发现超支。"]
     return "\n".join(lines)

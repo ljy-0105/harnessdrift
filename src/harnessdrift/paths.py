@@ -12,8 +12,8 @@ from __future__ import annotations
 
 import os
 import shutil
+from collections.abc import Iterable, Mapping
 from pathlib import Path
-from typing import Iterable, Mapping
 
 # 一棵 harness 树：相对路径(posix) -> 文件内容
 Tree = dict[str, str]

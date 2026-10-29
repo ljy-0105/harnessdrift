@@ -21,7 +21,7 @@ def _write_curve(root: Path, accept: str, baseline: float, rounds: list[dict],
         "final": {"mean": final, "std": 0.4, "round_id": 1, "solved": solved1},
         "rounds": [{"round_id": 0, "kind": "base", "mean": baseline, "std": 0.5,
                     "solved": solved0, "improved": False, "neutral": False,
-                    "broke": []}] + rounds,
+                    "broke": []}, *rounds],
     }
     (d / "curve.json").write_text(json.dumps(payload, ensure_ascii=False),
                                   encoding="utf-8")

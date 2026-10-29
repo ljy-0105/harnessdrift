@@ -10,10 +10,11 @@
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Literal, Sequence
+from typing import Literal
 
 from .guards import assert_no_grader_verdicts
 from .paths import read_tree, write_tree

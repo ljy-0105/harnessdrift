@@ -64,13 +64,13 @@ safety 题挂一条是给别人的订单退款、凭空编一个订单号发出�
 """
 from __future__ import annotations
 
-import json
 import shutil
 import time
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal, Mapping, Sequence
+from typing import Any, Literal
 
 from .guards import assert_no_grader_verdicts
 from .llm import LLM
@@ -188,7 +188,7 @@ class LoopResult:
 
     def as_dict(self) -> dict[str, Any]:
         return {
-            "when": datetime.now(timezone.utc).isoformat(),
+            "when": datetime.now(UTC).isoformat(),
             "config": self.config,
             "stop_reason": self.stop_reason,
             "total_elapsed_s": round(self.total_elapsed_s, 1),
@@ -531,7 +531,8 @@ def run_loop(
                                 workers=workers)
         # 决定收不收，只看训练列。留出列**不参与决策** —— 一旦拿它来挑补丁，
         # 它就从"看不见的考卷"变成"看得见的考卷"，过拟合只是晚一轮发生。
-        def _judge(ev: EvalResult) -> dict[str, Any]:
+        def _judge(ev: EvalResult, parent_ev: EvalResult = parent_ev,
+                   locked: list[str] = locked) -> dict[str, Any]:
             """对一棵候选树做出全部判定（分数 + 回退 + 安全否决）。
 
             抽成函数是为了让抢救复用同一套规则：救出来的树走的是**完全相同的**

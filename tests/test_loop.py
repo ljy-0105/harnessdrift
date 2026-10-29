@@ -20,9 +20,7 @@ import pytest
 from harnessdrift.llm import LLMReply
 from harnessdrift.loop import _accepted, _is_improved, run_loop
 from harnessdrift.report import render
-from harnessdrift.runner import EvalResult
 from harnessdrift.tasks import Task
-
 
 MAGIC_A = "MAGIC_ALPHA"
 MAGIC_B = "MAGIC_BETA"
@@ -61,7 +59,7 @@ class ScriptedLLM:
         self.usage_total: dict[str, int] = {"prompt_tokens": 0, "completion_tokens": 0,
                                             "total_tokens": 0}
 
-    def chat(self, messages, **kw):  # noqa: ANN001, ANN003
+    def chat(self, messages, **kw):
         system = messages[0]["content"] if messages else ""
         self.seen.append("\n".join(m.get("content", "") for m in messages))
         self.usage_total["total_tokens"] += 100

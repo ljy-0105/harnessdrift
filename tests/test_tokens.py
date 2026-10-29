@@ -27,7 +27,7 @@ class _FakeLLM(LLM):
         self._lock = threading.Lock()
         self.calls = 0
 
-    def chat(self, messages, tools=None, **kw):  # noqa: ANN001, ANN201
+    def chat(self, messages, tools=None, **kw):
         self.calls += 1
         reply = LLMReply(text="好的", usage={"prompt_tokens": 10,
                                              "completion_tokens": 2,

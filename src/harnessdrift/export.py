@@ -20,14 +20,14 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 from .compare import load_curve
 from .paths import read_tree  # noqa: F401  (保留给以后的树对比)
 
-__all__ = ["build_payload", "render_html", "export"]
+__all__ = ["build_payload", "export", "render_html"]
 
 _TEMPLATE = Path(__file__).resolve().parents[2] / "web" / "template.html"
 
@@ -224,7 +224,7 @@ def build_payload(
 ) -> dict[str, Any]:
     curve = json.loads((run_dir / "curve.json").read_text(encoding="utf-8"))
     return {
-        "generated_at": datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds"),
+        "generated_at": datetime.now(UTC).astimezone().isoformat(timespec="seconds"),
         "run": run_dir.name,
         "config": curve.get("config") or {},
         "stop_reason": curve.get("stop_reason", ""),

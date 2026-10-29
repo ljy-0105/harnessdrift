@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import fnmatch
 import re
-from typing import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 
 # 描述"工作"的文本里不许出现的度量词汇
 MEASUREMENT_WORDS: tuple[str, ...] = (

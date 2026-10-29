@@ -23,7 +23,6 @@ from harnessdrift.rescue import rescue_vetoed
 from harnessdrift.runner import EvalResult
 from harnessdrift.tasks import Task
 
-
 MAGIC_A = "MAGIC_ALPHA"
 MAGIC_B = "MAGIC_BETA"
 
@@ -32,10 +31,10 @@ BASE_PROMPT = "# 你是客服\n\n## 原则\n1. 先查后答。\n"
 
 # ---------------------------------------------------------------- 单元：rescue
 
-def _fake_eval_from_tree(probe_predicate):  # noqa: ANN001, ANN201
+def _fake_eval_from_tree(probe_predicate):
     """按树的内容伪造评测结果：树里有毒文件，探测题就挂。"""
 
-    def _fake(tree, tasks, llm, reps=1, verbose=False, workers=1):  # noqa: ANN001, ANN003
+    def _fake(tree, tasks, llm, reps=1, verbose=False, workers=1):
         passes = {}
         for t in tasks:
             ok = probe_predicate(tree, t.id)
@@ -128,7 +127,7 @@ class ScriptedLLM:
         self.patches = list(patches)
         self.usage_total = {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}
 
-    def chat(self, messages, **kw):  # noqa: ANN001, ANN003
+    def chat(self, messages, **kw):
         system = messages[0]["content"] if messages else ""
         self.usage_total["total_tokens"] += 100
         if "harness 工程师" in system:

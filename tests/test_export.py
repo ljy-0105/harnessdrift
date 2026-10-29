@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from harnessdrift.export import build_payload, render_html, export
+from harnessdrift.export import build_payload, export, render_html
 
 
 def _curve(tmp_path, *, rounds, baseline_mean=30.0):
@@ -26,7 +26,7 @@ def _curve(tmp_path, *, rounds, baseline_mean=30.0):
         "delta": rounds[-1]["mean"] - baseline_mean,
         "rounds": [{"round_id": 0, "kind": "base", "mean": baseline_mean, "std": 0.5,
                     "solved": 1, "n_tasks": 2, "elapsed_s": 30.0,
-                    "passes": {"T1": [1, 1, 1], "T2": [0, 0, 0]}, "flaky": {}}] + rounds,
+                    "passes": {"T1": [1, 1, 1], "T2": [0, 0, 0]}, "flaky": {}}, *rounds],
     }, ensure_ascii=False), encoding="utf-8")
     return run
 
@@ -79,7 +79,7 @@ def test_broke_and_changed_survive_the_export(tmp_path):
         _rnd(1, 26.0, "rejected", broke=["T1"], changed={"modified": ["systemprompt.md"]}),
     ])
     p = build_payload(run, tasks_path=_tasks(tmp_path))
-    r1 = [r for r in p["rounds"] if r["round_id"] == 1][0]
+    r1 = next(r for r in p["rounds"] if r["round_id"] == 1)
     assert r1["broke"] == ["T1"]
     assert r1["changed"]["modified"] == ["systemprompt.md"]
     assert r1["accepted"] is False
@@ -91,7 +91,7 @@ def test_patch_markdown_is_read_from_the_round_tree(tmp_path):
     d.mkdir()
     (d / "PATCH.md").write_text("### REPLACE systemprompt.md\n    新提示\n", encoding="utf-8")
     p = build_payload(run, tasks_path=_tasks(tmp_path))
-    r1 = [r for r in p["rounds"] if r["round_id"] == 1][0]
+    r1 = next(r for r in p["rounds"] if r["round_id"] == 1)
     assert "REPLACE systemprompt.md" in r1["patch"]
 
 
@@ -106,7 +106,7 @@ def test_patch_found_even_with_windows_style_harness_dir(tmp_path):
     d.mkdir()
     (d / "PATCH.md").write_text("### ADD a.md\n    x\n", encoding="utf-8")
     p = build_payload(run, tasks_path=_tasks(tmp_path))
-    r1 = [r for r in p["rounds"] if r["round_id"] == 1][0]
+    r1 = next(r for r in p["rounds"] if r["round_id"] == 1)
     assert "ADD a.md" in r1["patch"]
 
 

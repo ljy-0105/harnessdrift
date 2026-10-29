@@ -19,8 +19,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
-import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +28,7 @@ from .guards import assert_no_grader_verdicts
 from .llm import LLM
 from .paths import read_tree, tree_hash, write_tree
 from .report import write_report
-from .runner import evaluate_tree, format_progress
+from .runner import evaluate_tree
 from .tasks import load_tasks
 
 
@@ -87,7 +86,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         out = Path(args.out)
         out.parent.mkdir(parents=True, exist_ok=True)
         payload = {
-            "when": datetime.now(timezone.utc).isoformat(),
+            "when": datetime.now(UTC).isoformat(),
             "harness": str(args.harness),
             "harness_hash": th,
             "model": llm.model,
@@ -220,7 +219,7 @@ def cmd_ablate(args: argparse.Namespace) -> int:
     return 0
 
 
-def tiers_of(tasks) -> dict[str, str]:  # noqa: ANN001
+def tiers_of(tasks) -> dict[str, str]:
     return {t.id: t.tier for t in tasks}
 
 

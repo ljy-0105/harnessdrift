@@ -37,14 +37,14 @@ from __future__ import annotations
 
 import difflib
 import json
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
-from .paths import read_tree, write_tree
-from .runner import EvalResult, evaluate_tree
+from .runner import evaluate_tree
 
-__all__ = ["Atom", "AblationResult", "split_atoms", "ablate", "write_attribution"]
+__all__ = ["AblationResult", "Atom", "ablate", "split_atoms", "write_attribution"]
 
 
 @dataclass
