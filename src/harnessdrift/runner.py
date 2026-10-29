@@ -182,6 +182,10 @@ def evaluate_tree(
                 res.errors[t.id] = f"{type(extra).__name__}: {extra}"
                 res.last_failed[t.id] = [f"ERROR {type(extra).__name__}"]
                 continue
+            if rep == reps - 1:
+                # last_failed 的语义是“最后一轮实际失败项”，
+                # 后一轮通过时必须清掉前一轮留下的旧失败。
+                res.last_failed.pop(t.id, None)
             if score.failed:
                 res.last_failed[t.id] = [c.name for c in score.failed]
                 for c in score.failed:

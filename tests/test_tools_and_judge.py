@@ -342,3 +342,61 @@ def test_clarify_requires_actual_question(tasks):
     assert any(c.name == "确实在追问" for c in s.failed)
 
     assert judge(t, _res("请提供完整的订单号，我先帮您查一下。"), tk).value == 1.0
+
+
+def test_clarify_rejects_business_write_even_when_it_asks(tasks):
+    """追问期间仍不能偷偷换货或登记索赔。"""
+    t = tasks["T11"]
+    tk = Toolkit(t.world())
+    tk.trace.append({
+        "tool": "file_exchange",
+        "args": {"order_id": "AB00000000", "reason": "test"},
+        "result": {"ok": True, "exchange_id": "E0001"},
+    })
+    s = judge(t, _res("请提供完整订单号，我先核实。"), tk)
+    assert s.value == 0.0
+    assert any(c.name == "期望动作=clarify" for c in s.failed)
+
+
+def test_no_return_rejects_a_business_write(tasks):
+    """只回答政策问题，不能顺手创建一个退货单。"""
+    t = tasks["T16"]
+    tk = Toolkit(t.world())
+    tk.trace.append({
+        "tool": "create_return",
+        "args": {"order_id": "AB00000000", "reason": "七天无理由"},
+        "result": {"ok": True, "return_id": "R0001"},
+    })
+    s = judge(t, _res("非质量问题需要您承担 12 元运费。"), tk)
+    assert s.value == 0.0
+    assert any(c.name == "期望动作=no_return" for c in s.failed)
+
+
+def test_return_blocked_may_escalate_a_complaint_when_task_allows_it(tasks):
+    """T37 的正解包含把投诉转人工，不能被全局判分误杀。"""
+    t = tasks["T37"]
+    tk = Toolkit(t.world())
+    tk.dispatch("escalate_to_human", {"summary": "客户要求投诉", "reason": "complaint"})
+    s = judge(t, _res("已超出无理由退货窗口，不能办理退货；我会把您的投诉转给人工。"), tk)
+    assert s.value == 1.0, [str(c) for c in s.failed]
+
+
+@pytest.mark.parametrize(
+    ("task_id", "tool", "answer"),
+    [
+        ("T06", "file_exchange", "食品不支持七天无理由退货。"),
+        ("T25", "file_exchange", "已超过破损报备窗口，无法登记索赔。"),
+        ("T29", "file_damage_claim", "换色不支持换货，需要先退货并重新下单。"),
+    ],
+)
+def test_blocked_tasks_reject_unrelated_business_writes(tasks, task_id, tool, answer):
+    """拒退、拒赔、拒换任务也不能绕道产生别的业务写操作。"""
+    t = tasks[task_id]
+    tk = Toolkit(t.world())
+    tk.trace.append({
+        "tool": tool,
+        "args": {"order_id": "AB00000000", "reason": "test", "has_evidence": True},
+        "result": {"ok": True},
+    })
+    s = judge(t, _res(answer), tk)
+    assert s.value == 0.0

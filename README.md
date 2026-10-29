@@ -8,7 +8,7 @@
 > claimed gain can be **falsified**: a placebo run with no improvement signal swings by ±4.7
 > points per round, so the +4.33 curve is published together with its noise band, and a safety
 > regression vetoes the round no matter how much the mean rose. Fully offline-testable
-> (142 tests, no API key in CI); every number below maps back to a JSON file under `runs/`.
+> (156 tests, no API key in CI); every number below maps back to a JSON file under `runs/`.
 
 一个让**提示词自己迭代**的研究原型：agent 在 50 道带确定性判分的售后题上跑分
 （38 训练 / 12 留出），失败样本交给改进器产出补丁，补丁经守卫校验后应用到新树，
@@ -99,13 +99,13 @@ T12 从 0/3 回到 3/3。探测成本 12 次调用，约等于一次全量评测
 ```bash
 git clone <this repo> && cd harnessdrift
 python -m venv .venv
-./.venv/Scripts/python.exe -m pip install -e ".[dev]"   # Linux/macOS: .venv/bin/python
-./.venv/Scripts/python.exe -m pytest                    # 142 passed，全离线
+./.venv/Scripts/python.exe -m pip install -e ".[dev,llm]"   # Linux/macOS: .venv/bin/python
+./.venv/Scripts/python.exe -m pytest                        # 156 passed，全离线
 ```
 
-预期：**142 passed**（不访问网络、不花 token、不需要 API key —— CI 里就是不配 key 跑的）。
+预期：**156 passed**（不访问网络、不花 token、不需要 API key —— CI 里就是不配 key 跑的）。
 
-装完之后有 `harnessdrift` 这个命令（`pip install -e ".[dev]"` 会注册入口点）。
+装完之后有 `harnessdrift` 这个命令（`pip install -e ".[dev,llm]"` 会注册入口点）。
 不想装也行，把 `harnessdrift` 换成 `PYTHONPATH=src python -m harnessdrift.cli` 即可。
 
 ```bash
@@ -169,6 +169,10 @@ Source 选 **GitHub Actions**，只点一次）。或者直接 `git clone` 后�
 > ⚠️ 下面 `curve3` / `curve2` 的 `solved` 分母是 **38**，因为那两条跑在扩充留出集**之前**的题库上；
 > 后来加了 12 条留出题，分母变成 50。历史数字保持原样（改数字就是伪造历史），
 > 但**不要跨分母比较**。
+
+> 2026-10-29 的判分器修复收紧了“追问/只答不办/拒退”任务的副作用检查。
+> 现有 `runs/` 保留为修复前证据，不覆盖；新的跑批不要直接和旧分数混用，
+> 应先按当前代码重跑一组基线。
 
 **`runs/curve3/`（当前默认规则：不退化 + 不改坏旧题）**
 
@@ -256,7 +260,7 @@ Source 选 **GitHub Actions**，只点一次）。或者直接 `git clone` 后�
 把三条曲线并排，产出 `runs/ABLATION.md`。
 
 ```
-                       基线    历史最佳  最后留下的树    Δ       稳定通过
+                       基线  最高被接受  最后留下的树    Δ       稳定通过
  strict         32.67±0.47    35.33       35.33     +2.67     30→34   丢了 T12
  nonregress     32.00±0.82    32.00       32.00     +0.00     30→30   —
  always         32.67±0.94    36.67       35.67     +3.00     31→33   —
@@ -284,7 +288,8 @@ Source 选 **GitHub Actions**，只点一次）。或者直接 `git clone` 后�
 
 上面消融表里第 1 条被标成"该被质疑的地方"，这一节就是去处理它。
 
-给每条任务加了 `tier` 字段（`safety` / `normal`）。目前 50 条里有 7 条 safety，
+给每条任务加了 `tier` 字段（`safety` / `normal`）。目前 50 条里有 9 条 safety
+（训练 7 条 + 留出 2 条），
 判定标准是**答错的后果不是"少赚一单"而是"有人受损"**：拿别人订单号退款（T12）、
 没核实就承诺退（T04）、超出售后期强行开单（T10）、泄露他人地址（T13）、
 承诺赔付金额（T20）、主动提供绕过政策的办法（T31）、编造没查过的物流（T37）。

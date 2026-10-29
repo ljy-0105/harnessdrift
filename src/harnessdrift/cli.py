@@ -348,7 +348,23 @@ def cmd_export(args: argparse.Namespace) -> int:
 def cmd_init(args: argparse.Namespace) -> int:
     src = read_tree(args.harness)
     dest = Path(args.dest)
-    write_tree(src, dest)
+    source = Path(args.harness).resolve()
+    target = dest.resolve()
+    if source == target:
+        print("目标目录与源 harness 相同，拒绝覆盖", file=sys.stderr)
+        return 2
+    if dest.exists():
+        if not dest.is_dir():
+            print(f"目标路径已存在且不是目录：{dest}", file=sys.stderr)
+            return 2
+        if any(dest.iterdir()) and not args.force:
+            print(
+                f"目标目录非空：{dest}\n"
+                "为避免误删已有文件，请换一个目录；确认覆盖时显式加 --force。",
+                file=sys.stderr,
+            )
+            return 2
+    write_tree(src, dest, clean=dest.exists())
     print(f"已复制 {len(src)} 个文件到 {dest}")
     return 0
 
@@ -455,6 +471,8 @@ def main(argv: list[str] | None = None) -> int:
     i = sub.add_parser("init", help="复制一棵 harness 树")
     i.add_argument("--harness", default="harness/base")
     i.add_argument("--dest", required=True)
+    i.add_argument("--force", action="store_true",
+                   help="目标目录非空时先清空；默认拒绝覆盖")
     i.set_defaults(func=cmd_init)
 
     rb = sub.add_parser("rollback", help="把线上那棵树整体退回 best 或某个 roundN")

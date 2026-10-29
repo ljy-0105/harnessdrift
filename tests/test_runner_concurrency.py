@@ -98,3 +98,22 @@ def test_one_crashing_task_does_not_kill_the_run():
     assert ev.passes["T03"] == [0.0]
     assert "T03" in ev.errors and "炸了" in ev.errors["T03"]
     assert sum(1 for v in ev.passes.values() for p in v if p == 1.0) == 4
+
+
+def test_last_failed_tracks_the_last_rep_only():
+    """前一轮失败、最后一轮通过时，run --out 不能继续报旧失败。"""
+    class _AlternatingLLM(_SlowLLM):
+        def __init__(self) -> None:
+            super().__init__(delay=0.0)
+            self.n = 0
+
+        def chat(self, messages, **kw):
+            self.n += 1
+            return LLMReply(text="旧答复" if self.n == 1 else "MAGIC", usage={"total_tokens": 1})
+
+    task = Task(id="T01", message="测试", why="last_failed 测试",
+                expect="no_return", customers=[], orders=[],
+                answer_must_mention=["MAGIC"])
+    ev = evaluate_tree(TREE, [task], _AlternatingLLM(), reps=2)
+    assert ev.passes["T01"] == [0.0, 1.0]
+    assert ev.last_failed == {}

@@ -22,13 +22,13 @@
 | 一类新的失败检测 | `evaluate.py` 的 checks | 加一条"故意写错必须被抓"的测试 |
 | 一种新的接受规则 | `loop.py` 的 `_accepted` / `_is_improved` | 至少两条曲线证明它和现有规则不一样 |
 | 一种新的归因粒度 | `ablate.py` 的 `atoms_of` | 归因的分数必须能被 `runs/` 复现 |
-| 前端 | `web/template.html` + `web/smoke.cjs` | `node web/smoke.cjs dist/index.html` 要过 |
+| 前端 | `src/harnessdrift/template.html` + `web/smoke.cjs` | `node web/smoke.cjs dist/index.html` 要过 |
 
 ## 本地检查（提交前跑这四个）
 
 ```bash
 ruff check src tests                                   # 风格
-pytest                                                 # 142 条，全离线
+pytest                                                 # 156 条，全离线
 harnessdrift export --run runs/curve3 --out dist/index.html && node web/smoke.cjs dist/index.html
 git status --short                                     # 不该出现 .env 或新的 run 目录
 ```

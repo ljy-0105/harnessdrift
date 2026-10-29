@@ -13,6 +13,7 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from harnessdrift.edits import (
+    Edit,
     EditError,
     apply_edits,
     diff_summary,
@@ -131,6 +132,21 @@ def test_malformed_proposals_raise_instead_of_silently_skipping():
     ):
         with pytest.raises(EditError):
             parse_patch(bad)
+
+
+def test_patch_paths_are_normalized_and_escape_is_rejected():
+    with pytest.raises(EditError, match="invalid edit path"):
+        parse_patch("### ADD tool_descriptions/../../escaped.md\n    x\n")
+    with pytest.raises(EditError, match="appears twice"):
+        parse_patch(
+            "### ADD tool_descriptions/a.md\n    x\n"
+            "### ADD tool_descriptions//a.md\n    y\n"
+        )
+
+
+def test_apply_edits_rejects_a_manually_constructed_escape():
+    with pytest.raises(EditError, match="invalid edit path"):
+        apply_edits(BASE, [Edit(action="ADD", path="../evil.md", body="x\n")])
 
 
 def test_unindented_body_is_rejected():

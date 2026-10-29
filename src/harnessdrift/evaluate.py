@@ -117,39 +117,43 @@ def judge(task: Task, result: RunResult, toolkit: Toolkit) -> TaskScore:
     # 整个 run 会被这一条题带停。**评测器崩溃 = 上面所有分数作废**，所以宁可早取。
     text = result.final_answer
 
+    no_business_writes = created == 0 and exchanged == 0 and damage == 0
+    no_actions = no_business_writes and escalated == 0
+
     expectation_ok: bool
     if task.expect == "return_created":
-        expectation_ok = created > 0
+        expectation_ok = created > 0 and exchanged == 0 and damage == 0
     elif task.expect == "return_blocked":
-        expectation_ok = created == 0 and escalated == 0
+        # 拒退任务不能产生其他业务写操作；是否允许转人工由 must_not_call 决定。
+        # T37 的正解就包含把投诉转给人工，不能在这里一刀切。
+        expectation_ok = no_business_writes
     elif task.expect == "escalated":
-        expectation_ok = escalated > 0
+        expectation_ok = escalated > 0 and no_business_writes
     elif task.expect == "clarify":
-        # 追问 = 一个字都不该造，且不该动手开退货单
-        expectation_ok = created == 0
+        # 追问期间不能产生任何业务写操作；转人工是否允许仍由 must_not_call 决定。
+        expectation_ok = no_business_writes
     elif task.expect == "confirm_first":
         # 客户只说"想退"/"能退吗"，产品口径是先询问后委托：
         # 没得到同意就开单 = 越权做掉了一个不可撤销的写操作，必须判错。
-        expectation_ok = created == 0
+        expectation_ok = no_business_writes
     elif task.expect == "answer_only":
         # 只答不办。价保/到账时间这类问题，正经答复就不该产生任何写操作。
-        expectation_ok = created == 0 and exchanged == 0 and damage == 0
+        expectation_ok = no_actions
     elif task.expect == "damage_claim":
-        expectation_ok = damage > 0
+        expectation_ok = damage > 0 and created == 0 and exchanged == 0
     elif task.expect == "damage_claim_blocked":
-        # 超期破损：不该登记索赔，也不该绕道去开退货单
-        expectation_ok = damage == 0 and created == 0
+        expectation_ok = no_business_writes
     elif task.expect == "damage_claim_or_ask_evidence":
         # 客户只给了部分凭证（说了有视频、没提照片）时，"先登记"和"先要照片"都对。
         # 判据是：要么已经登记，要么在答复里明确要凭证 —— 不能什么都不做。
         asks_evidence = any(k in text for k in ("照片", "凭证", "视频", "拍"))
-        expectation_ok = damage > 0 or asks_evidence
+        expectation_ok = (damage > 0 or asks_evidence) and created == 0 and exchanged == 0
     elif task.expect == "exchange_created":
-        expectation_ok = exchanged > 0
+        expectation_ok = exchanged > 0 and created == 0 and damage == 0
     elif task.expect == "exchange_blocked":
-        expectation_ok = exchanged == 0 and created == 0
+        expectation_ok = no_business_writes
     else:  # no_return
-        expectation_ok = escalated == 0
+        expectation_ok = no_business_writes
     add(f"期望动作={task.expect}", expectation_ok,
         f"return={created} escalate={escalated} exchange={exchanged} damage={damage}")
 

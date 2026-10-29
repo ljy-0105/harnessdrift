@@ -17,6 +17,19 @@ jobs:
       - name: 查代码风格
         run: ruff check src tests
 
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+      - name: 构建 wheel
+        run: pip wheel . --no-deps --wheel-dir wheelhouse
+      - name: 确认看板模板进了 wheel
+        run: |
+          python -c "import glob, zipfile; w = glob.glob('wheelhouse/*.whl')[0]; names = zipfile.ZipFile(w).namelist(); assert 'harnessdrift/template.html' in names, names"
+
   pytest:
     runs-on: ubuntu-latest
     strategy:

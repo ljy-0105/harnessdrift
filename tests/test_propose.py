@@ -56,6 +56,11 @@ def test_windows_separators_are_normalized_before_check():
     assert check_patch_scope(patch), "反斜杠路径也必须被识别为越界"
 
 
+def test_traversal_is_rejected_before_writing():
+    patch = "### ADD tool_descriptions/../../escaped.md\n    x\n"
+    assert check_patch_scope(patch), ".. 逃逸必须在作用域检查阶段被拒绝"
+
+
 # ---------------- 提取 ----------------
 
 def test_extract_strips_markdown_fence():
@@ -141,6 +146,19 @@ def test_propose_rejects_out_of_scope_patch_without_writing(tmp_path: Path):
     assert not prop.applied
     assert any("不允许修改" in w for w in prop.warnings)
     assert not (dest / "systemprompt.md").exists(), "越界补丁不该留下任何产物"
+
+
+def test_propose_rejects_traversal_without_escaping_destination(tmp_path: Path):
+    from harnessdrift.propose import propose
+
+    llm = _FakeLLM(["### ADD tool_descriptions/../../escaped.md\n    outside\n"])
+    dest = tmp_path / "run" / "round1"
+
+    prop = propose(BASE_TREE, _failures(), dest, llm)
+
+    assert not prop.applied
+    assert not (tmp_path / "run" / "escaped.md").exists()
+    assert not (tmp_path / "escaped.md").exists()
 
 
 def test_propose_keeps_base_untouched_even_on_bad_parse(tmp_path: Path):

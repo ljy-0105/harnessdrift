@@ -1,5 +1,5 @@
 // 在 node 里跑一遍看板的渲染逻辑，确认没有运行时错误、产出非空。
-// 用法：node web/_smoke.cjs dist/index.html
+// 用法：node web/smoke.cjs dist/index.html
 const fs = require("fs");
 
 const file = process.argv[2] || "dist/index.html";

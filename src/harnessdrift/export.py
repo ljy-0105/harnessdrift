@@ -29,7 +29,7 @@ from .paths import read_tree  # noqa: F401  (保留给以后的树对比)
 
 __all__ = ["build_payload", "export", "render_html"]
 
-_TEMPLATE = Path(__file__).resolve().parents[2] / "web" / "template.html"
+_TEMPLATE = Path(__file__).with_name("template.html")
 
 # 每轮的得分要和"父树"比，而不是和上一轮的候选比：被拒绝的候选不是父树。
 # 这个口径和 loop.py 里的 _is_improved(gain = cand - parent) 保持一致。

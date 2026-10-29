@@ -26,6 +26,7 @@ from .edits import apply_edits, parse_patch
 from .evaluate import TaskScore
 from .guards import assert_prompt_describes_work
 from .llm import LLM
+from .paths import PathEscapeError, normalize_rel
 
 # 改进器被允许改的文件。别的路径直接拒绝——这是权限边界，不是建议。
 #
@@ -214,7 +215,11 @@ def check_patch_scope(text: str) -> list[str]:
         m = re.match(r"^###\s+(ADD|REPLACE|DELETE)\s+(\S+)\s*$", line)
         if not m:
             continue
-        path = m.group(2).replace("\\", "/").lstrip("./")
+        try:
+            path = normalize_rel(m.group(2))
+        except PathEscapeError as e:
+            problems.append(f"不允许修改 {m.group(2)}：{e}")
+            continue
         if any(path.startswith(p) for p in FORBIDDEN_PREFIXES) and not path.startswith("harness/"):
             problems.append(f"不允许修改 {path}：代码与题库不在改进范围内")
         elif not any(path == p or path.startswith(p) for p in ALLOWED_PREFIXES):

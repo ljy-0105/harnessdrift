@@ -25,7 +25,7 @@ Issues = "https://github.com/ljy-0105/harnessdrift/issues"
 
 [project.optional-dependencies]
 llm = ["openai>=1.40"]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.9"]
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -33,6 +33,9 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+harnessdrift = ["template.html"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -29,7 +29,7 @@ import re
 from dataclasses import dataclass
 from typing import Literal
 
-from .paths import Tree, normalize_tree
+from .paths import PathEscapeError, Tree, normalize_rel, normalize_tree
 
 Action = Literal["ADD", "REPLACE", "DELETE"]
 
@@ -84,7 +84,10 @@ def parse_patch(text: str) -> list[Edit]:
         if m:
             flush()
             action = m.group(1)  # type: ignore[assignment]
-            path = m.group(2).strip()
+            try:
+                path = normalize_rel(m.group(2).strip())
+            except PathEscapeError as e:
+                raise EditError(f"line {lineno}: invalid edit path: {e}") from e
             if path in seen:
                 raise EditError(f"line {lineno}: {path!r} appears twice in one proposal")
             seen.add(path)
@@ -124,21 +127,25 @@ def apply_edits(tree: Tree, edits: list[Edit]) -> Tree:
     """把 edits 作用到树上，返回新树；原树不变。"""
     out = normalize_tree(tree)
     for e in edits:
-        exists = e.path in out
+        try:
+            path = normalize_rel(e.path)
+        except PathEscapeError as exc:
+            raise EditError(f"invalid edit path {e.path!r}: {exc}") from exc
+        exists = path in out
         if e.action == "ADD":
             if exists:
-                raise EditError(f"ADD {e.path!r}: already present; use REPLACE to change it")
+                raise EditError(f"ADD {path!r}: already present; use REPLACE to change it")
             assert e.body is not None
-            out[e.path] = e.body
+            out[path] = e.body
         elif e.action == "REPLACE":
             if not exists:
-                raise EditError(f"REPLACE {e.path!r}: not present; use ADD to create it")
+                raise EditError(f"REPLACE {path!r}: not present; use ADD to create it")
             assert e.body is not None
-            out[e.path] = e.body
+            out[path] = e.body
         else:  # DELETE
             if not exists:
-                raise EditError(f"DELETE {e.path!r}: not present")
-            del out[e.path]
+                raise EditError(f"DELETE {path!r}: not present")
+            del out[path]
     return dict(sorted(out.items()))
 
 

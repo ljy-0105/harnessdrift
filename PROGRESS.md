@@ -17,7 +17,7 @@
 | 2 | PROPOSE：失败样本 → 补丁 → 守卫 → 新树 | `src/harnessdrift/propose.py` |
 | 3 | 闭环：接受规则 + 五个停止条件 + REPORT.md | `docs/internal/HANDOFF-STEP3.md` |
 | 4 | 归因（拆原子）+ 消融（多曲线对照） | `docs/internal/HANDOFF-STEP4.md` |
-| 5 | 静态看板 export（单文件 HTML，CI 里跑渲染冒烟） | `web/template.html` |
+| 5 | 静态看板 export（单文件 HTML，CI 里跑渲染冒烟） | `src/harnessdrift/template.html` |
 | 6 | **安全题分档**：`tier` + 锁定名单 + 一票否决 | `docs/internal/HANDOFF-STEP3.md` §2 |
 | 7 | **留出集**：12 条 H 题只计分、不进提案端、不参与决策 | `README.md` §留出集 |
 | 8 | **硬预算**：`--max-tokens`，每轮开始与评测前各查一次 | `loop.py` |
@@ -73,7 +73,7 @@ T12 回到 3/3。**结论：否决要保留，但不该整轮丢弃，应该做�
 
 ```bash
 cd harnessdrift
-PYTHONPATH=src ./.venv/Scripts/python.exe -m pytest          # 142 passed，不联网
+PYTHONPATH=src ./.venv/Scripts/python.exe -m pytest          # 156 passed，不联网
 export LLM_API_KEY=...                                       # 只有跑评测才需要
 PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli loop \
     --accept strict --safety-mode lock --out runs/strict_lock --reps 3 \

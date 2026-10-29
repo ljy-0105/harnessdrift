@@ -170,7 +170,7 @@ def render_comparison(curves: list[Curve]) -> str:
     out.append(f"> {n} 条任务 × {reps} 次重复 · {_fmt_rules(curves)}\n")
 
     out.append("## 1. 结局\n")
-    out.append("| 接受规则 | 基线 | 历史最佳 | 最后接受的那棵 | Δ | 稳定通过 | 丢失稳定题 | 收/拒 |")
+    out.append("| 接受规则 | 基线 | 最高被接受轮次 | 最后接受的那棵 | Δ | 稳定通过 | 丢失稳定题 | 收/拒 |")
     out.append("|---|---:|---:|---:|---:|---:|---|---:|")
     for c in curves:
         lost = "、".join(c.lost_stable()) or "—"
@@ -182,11 +182,11 @@ def render_comparison(curves: list[Curve]) -> str:
             f"{c.accepted}/{c.rejected} |"
         )
     out.append("")
-    out.append("> \"历史最佳\"是曲线上分数最高的那一轮（`best/` 导出的就是它）；"
+    out.append("> \"最高被接受轮次\"只统计 `accepted` 轮（`best/` 导出的就是它）；"
                "\"最后接受的那棵\"是这条规则**停下来时真正留下的树**。"
                "两者在 `always` 档会分开：它不挑，分数掉了也照样替换。"
-               "全拒的曲线（`nonregress` 被回退规则拦了一路）最后留下的就是基线，"
-               "被拦下的候选只出现在下面的逐轮轨迹里。\n")
+               "全拒的曲线（`nonregress` 被回退规则拦了一路）最后留下的就是基线；"
+               "被拒绝但分数更高的候选只出现在下面的逐轮轨迹里，不计入这一列。\n")
 
     out.append("## 2. 逐轮轨迹\n")
     for c in curves:

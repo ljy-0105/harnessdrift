@@ -10,7 +10,7 @@ import json
 
 import pytest
 
-from harnessdrift.export import build_payload, export, render_html
+from harnessdrift.export import _TEMPLATE, build_payload, export, render_html
 
 
 def _curve(tmp_path, *, rounds, baseline_mean=30.0):
@@ -142,6 +142,10 @@ def test_export_writes_a_file(tmp_path):
     out = tmp_path / "dist" / "index.html"
     export(run, out, tasks_path=_tasks(tmp_path))
     assert out.exists() and out.stat().st_size > 3000
+
+
+def test_default_template_exists_beside_the_package():
+    assert _TEMPLATE.is_file(), "wheel/editable install 都必须能找到内置模板"
 
 
 def test_missing_attribution_is_none_not_an_error(tmp_path):
