@@ -8,7 +8,7 @@
 > claimed gain can be **falsified**: a placebo run with no improvement signal swings by ±4.7
 > points per round, so the +4.33 curve is published together with its noise band, and a safety
 > regression vetoes the round no matter how much the mean rose. Fully offline-testable
-> (159 tests, no API key in CI); every number below maps back to a JSON file under `runs/`.
+> (159 tests on both ubuntu and windows, no API key in CI); every number below maps back to a JSON file under `runs/`.
 
 一个让**提示词自己迭代**的研究原型：agent 在 50 道带确定性判分的售后题上跑分
 （38 训练 / 12 留出），失败样本交给改进器产出补丁，补丁经守卫校验后应用到新树，

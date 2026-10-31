@@ -113,3 +113,9 @@ node web/smoke.cjs dist/index.html                           # 无浏览器渲�
 - 每档只跑了一次，模型没有固定 seed。`runs/noise_b1..3` 实测同一棵树极差 3.33 分，
   因此这张表**不支持**"哪档高 0.5 分所以更好"。要比较均值，reps ≥ 9 或跑 3 条独立曲线。
 - `--placebo` 必须配 `--accept always`（否则持平轮被拒、树不动，对照就没有意义）。
+- 看板只画**真正评过**的题（`export._evaluated_ids` 从每轮 `passes` 取并集）。
+  题库会比跑批长 —— 曾经因此出现"KPI 写 38 题、矩阵标题写 33/50、多出 12 个未评测格子"。
+- 归因节和曲线节的父树分数本来就可能差一分多（`ablate` 另跑一遍）。看板会自动
+  标 `_parent_drift` 解释，别手动去"对齐"这两个数字。
+- CI 现在有 `pytest-windows`：项目是在 Windows 上写的，`os.replace`/gbk 解码/路径大小写
+  三处真的和 Linux 不同，只跑 ubuntu 等于没人守主力平台。
