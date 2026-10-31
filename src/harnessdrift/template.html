@@ -331,6 +331,11 @@ function attribution() {
       下面的数字和上面的曲线<b>不是一回事</b>，请看板生成时把 <code>--attr</code> 指对。</div>` : ""}
     <p class="sub" style="margin-bottom:12px">把补丁按 hunk 拆成原子，逐个单独合回父树评测。
     父树 ${f2(a.base.mean)} → 全量 ${f2(a.full.mean)}（${sign(a.full_delta)}），最强单点 ${sign(a.best_atom_delta)}。</p>
+    ${a._parent_drift ? `<div class="note" style="margin-bottom:12px">这里的父树 <b>${f2(a._parent_drift.attribution)}</b> 是
+      <code>ablate</code> 为了做对照<b>另跑一遍</b>测出来的，上面曲线第 0 轮记的是 <b>${f2(a._parent_drift.curve)}</b>。
+      同一棵树、同一批题，重跑一次就能差 ${f2(Math.abs(a._parent_drift.attribution - a._parent_drift.curve))} 分 ——
+      不是谁算错了，这就是这个评测本身的噪声（另见「安慰剂对照与噪声区间」）。
+      所以本节只用来看<b>原子之间的相对大小</b>，别拿它和上面的曲线分数对齐。</div>` : ""}
     ${atoms.map((o) => row(o.label || `原子 ${o.index}`, o.path, o.delta, o.delta < 0 ? "neg" : "", o.verdict === "有效" ? " ✓" : "")).join("")}
     <div style="border-top:2px dashed #ddd0bf;margin:10px 0"></div>
     ${row("交互效应（四条一起才有的部分）", "full − 父树 − Σ单点", a.interaction, "inter")}

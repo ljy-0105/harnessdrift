@@ -8,7 +8,7 @@
 > claimed gain can be **falsified**: a placebo run with no improvement signal swings by ±4.7
 > points per round, so the +4.33 curve is published together with its noise band, and a safety
 > regression vetoes the round no matter how much the mean rose. Fully offline-testable
-> (156 tests, no API key in CI); every number below maps back to a JSON file under `runs/`.
+> (159 tests, no API key in CI); every number below maps back to a JSON file under `runs/`.
 
 一个让**提示词自己迭代**的研究原型：agent 在 50 道带确定性判分的售后题上跑分
 （38 训练 / 12 留出），失败样本交给改进器产出补丁，补丁经守卫校验后应用到新树，
@@ -100,10 +100,10 @@ T12 从 0/3 回到 3/3。探测成本 12 次调用，约等于一次全量评测
 git clone <this repo> && cd harnessdrift
 python -m venv .venv
 ./.venv/Scripts/python.exe -m pip install -e ".[dev,llm]"   # Linux/macOS: .venv/bin/python
-./.venv/Scripts/python.exe -m pytest                        # 156 passed，全离线
+./.venv/Scripts/python.exe -m pytest                        # 159 passed，全离线
 ```
 
-预期：**156 passed**（不访问网络、不花 token、不需要 API key —— CI 里就是不配 key 跑的）。
+预期：**159 passed**（不访问网络、不花 token、不需要 API key —— CI 里就是不配 key 跑的）。
 
 装完之后有 `harnessdrift` 这个命令（`pip install -e ".[dev,llm]"` 会注册入口点）。
 不想装也行，把 `harnessdrift` 换成 `PYTHONPATH=src python -m harnessdrift.cli` 即可。
@@ -356,7 +356,16 @@ harnessdrift loop --accept strict --safety-mode lock   --out runs/strict_lock
 
 看板也认档位：题矩阵里 safety 题带橙框，KPI 单独一行 `安全档稳定通过 n/N`，
 被否决的轮次会写明"一票否决：T12 是 safety 档"。
-`dist/index.html` 是 `strict_lock` 的看板，`dist/veto.html` 是 v1 那条的。
+
+线上共三个看板，各对应一条曲线，别混着看：
+
+| 页面 | 数据来源 | 特点 |
+|---|---|---|
+| [index.html](https://ljy-0105.github.io/harnessdrift/) | `runs/curve3` | 38 题、无 token 记账（那时还没做）、带归因与三档消融 |
+| [veto.html](https://ljy-0105.github.io/harnessdrift/veto.html) | `runs/strict_veto` | 安全档一票否决的原案：均值 +5.00 但 T12 掉到 0/3 |
+| [holdout.html](https://ljy-0105.github.io/harnessdrift/holdout.html) | `runs/holdout1` | 50 题全量、训练/留出分列、带 token 记账 |
+
+三个页面都是单个 HTML、数据内联，`file://` 直接双击也能看。
 
 ## 留出集：涨分是真本事，还是背题
 

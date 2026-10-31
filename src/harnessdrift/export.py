@@ -124,6 +124,23 @@ def _rounds(curve: dict[str, Any], run_dir: Path) -> list[dict[str, Any]]:
     return out
 
 
+def _evaluated_ids(curve: dict[str, Any]) -> set[str]:
+    """这轮到底评过哪些题 —— 从每轮的 `passes` 键里取，取并集。
+
+    题库是会长的：curve3 跑的时候 38 条，后来加到 50 条（多出 12 条留出题）。
+    如果直接拿题库全文去渲染，看板就会出现"KPI 说 38 题、矩阵说 33/50、
+    还有 12 个从没跑过的格子标着未评测"这种自相矛盾 —— 读者第一眼就会怀疑
+    所有数字。所以只画真正评过的题：既不会凭空多出格子，也顺带支持
+    `--only T12` 这种只跑几条的导出。
+    """
+    ids: set[str] = set()
+    for r in curve.get("rounds") or []:
+        ids |= set((r.get("passes") or {}).keys())
+    base = curve.get("baseline") or {}
+    ids |= set((base.get("passes") or {}).keys())
+    return ids
+
+
 def _tasks(path: Path) -> list[dict[str, Any]]:
     raw = json.loads(path.read_text(encoding="utf-8"))
     return [
@@ -150,7 +167,31 @@ def _attribution(attr_dir: Path | None, run_dir: Path | None = None) -> dict[str
     d = json.loads(p.read_text(encoding="utf-8"))
     d["_dir"] = attr_dir.name
     d["_match"] = _attr_matches_run(d, run_dir)
+    d["_parent_drift"] = _parent_drift(d, run_dir)
     return d
+
+
+def _parent_drift(attr: dict[str, Any], run_dir: Path | None) -> dict[str, float] | None:
+    """归因里的父树均值，和曲线里那条父树基线差多少。
+
+    `ablate` 是**另一次跑批**：它会把父树重新评测一遍，于是同一棵树能得 33.00，
+    而曲线记录的基线是 31.67 —— 两边都是真的，差的就是评测噪声。
+    看板上归因节写"父树 33.00 → 37.00"、曲线节写"基线 31.67 → 最佳 36.00"，
+    读者没有任何线索能看出这是两回事，只会觉得数字打架。
+    所以把这个差显式摆出来，比藏起来好。
+    """
+    if run_dir is None:
+        return None
+    p = Path(run_dir) / "curve.json"
+    if not p.exists():
+        return None
+    base = (json.loads(p.read_text(encoding="utf-8")).get("baseline") or {}).get("mean")
+    attr_base = (attr.get("base") or {}).get("mean")
+    if base is None or attr_base is None:
+        return None
+    if abs(attr_base - base) <= 0.05:
+        return None
+    return {"attribution": attr_base, "curve": base}
 
 
 def _attr_matches_run(attr: dict[str, Any], run_dir: Path | None) -> bool | None:
@@ -223,6 +264,14 @@ def build_payload(
     compare_dirs: list[Path] | None = None,
 ) -> dict[str, Any]:
     curve = json.loads((run_dir / "curve.json").read_text(encoding="utf-8"))
+    tasks = _tasks(tasks_path)
+    evaluated = _evaluated_ids(curve)
+    if evaluated:
+        kept = [t for t in tasks if t["id"] in evaluated]
+        # 只有当 run 记录里的 id 能在题库里对上时才收窄；对不上说明题库改过名，
+        # 宁可按题库全文渲染也不要凭空丢题。
+        if kept:
+            tasks = kept
     return {
         "generated_at": datetime.now(UTC).astimezone().isoformat(timespec="seconds"),
         "run": run_dir.name,
@@ -233,7 +282,7 @@ def build_payload(
         "final": curve.get("final") or {},
         "delta": curve.get("delta", 0.0),
         "tokens": (curve.get("total_tokens") or {}),
-        "tasks": _tasks(tasks_path),
+        "tasks": tasks,
         "rounds": _rounds(curve, run_dir),
         "attribution": _attribution(attr_dir, run_dir),
         "curves": _curves(compare_dirs or []),

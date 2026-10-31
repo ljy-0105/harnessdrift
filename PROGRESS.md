@@ -1,6 +1,6 @@
 # 进度快照
 
-> 保存于 2026-10-28 19:50 · 126 tests passed · 最新 commit 见 `git log -1`
+> 保存于 2026-10-28 19:50 · 159 tests passed · 最新 commit 见 `git log -1`
 > 这份文件是给人看"现在停在哪、下一步从哪接"的。技术细节在各 `docs/internal/HANDOFF-STEP*.md`，数字出处在下面对应的 `runs/`。
 
 ## 一句话
@@ -73,7 +73,7 @@ T12 回到 3/3。**结论：否决要保留，但不该整轮丢弃，应该做�
 
 ```bash
 cd harnessdrift
-PYTHONPATH=src ./.venv/Scripts/python.exe -m pytest          # 156 passed，不联网
+PYTHONPATH=src ./.venv/Scripts/python.exe -m pytest          # 159 passed，不联网
 export LLM_API_KEY=...                                       # 只有跑评测才需要
 PYTHONPATH=src ./.venv/Scripts/python.exe -m harnessdrift.cli loop \
     --accept strict --safety-mode lock --out runs/strict_lock --reps 3 \

@@ -204,3 +204,66 @@ def test_attribution_without_provenance_is_unknown_not_wrong(tmp_path):
     p.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
     assert build_payload(run, tasks_path=_tasks(tmp_path),
                          attr_dir=d)["attribution"]["_match"] is None
+
+
+def test_only_tasks_the_run_actually_evaluated_are_rendered(tmp_path):
+    """题库比这次跑批长时，看板不能凭空多出格子。
+
+    真实事故：curve3 跑的是 38 题，之后题库扩到 50 条（多 12 条留出题），
+    导出仍然按题库全文渲染 —— 同一个页面上 KPI 写"38 题"、矩阵标题写
+    "33/50"、还多出 12 个从没跑过的格子标着"未评测"。读者看到这种自相
+    矛盾，会连带着怀疑所有数字。
+    """
+    run = _curve(tmp_path, rounds=[_rnd(1, 33.0, "accepted")])
+    p = tmp_path / "tasks50.json"
+    p.write_text(json.dumps(
+        [{"id": "T1", "message": "a", "why": "", "expect": "", "split": "train"},
+         {"id": "T2", "message": "b", "why": "", "expect": "", "split": "train"},
+         {"id": "H1", "message": "c", "why": "", "expect": "", "split": "holdout"}],
+        ensure_ascii=False), encoding="utf-8")
+    payload = build_payload(run, tasks_path=p)
+    assert [t["id"] for t in payload["tasks"]] == ["T1", "T2"], "留出题这轮没跑，就不该出现在矩阵里"
+
+
+def test_subset_run_renders_only_its_subset(tmp_path):
+    """`--only T2` 跑出来的一轮，导出也只画 T2 —— 不能按题数截前 N 条。"""
+    run = _curve(tmp_path, rounds=[_rnd(1, 33.0, "accepted", passes={"T2": [1, 1, 1]})])
+    p = tmp_path / "tasks3.json"
+    p.write_text(json.dumps(
+        [{"id": "T1", "message": "a", "why": "", "expect": ""},
+         {"id": "T2", "message": "b", "why": "", "expect": ""}],
+        ensure_ascii=False), encoding="utf-8")
+    # 基线轮里 T1/T2 都在（_curve 写死的），所以这里只断言 T2 一定在、且不越界
+    ids = [t["id"] for t in build_payload(run, tasks_path=p)["tasks"]]
+    assert "T2" in ids and len(ids) <= 2
+
+
+def test_ids_missing_from_tasks_file_are_dropped(tmp_path):
+    """run 里记的 id 在题库里不存在（改过名）：只画对得上的，不炸。"""
+    run = _curve(tmp_path, rounds=[_rnd(1, 33.0, "accepted", passes={"X9": [1, 1, 1]})])
+    p = tmp_path / "tasks2.json"
+    p.write_text(json.dumps([{"id": "T1", "message": "a", "why": "", "expect": ""}],
+                            ensure_ascii=False), encoding="utf-8")
+    assert [t["id"] for t in build_payload(run, tasks_path=p)["tasks"]] == ["T1"]
+
+
+def test_different_parent_mean_between_attribution_and_curve_is_explained(tmp_path):
+    """归因里的父树和曲线基线差一分多时，要在看板上解释，而不是让两个数字打架。
+
+    `ablate` 是另一次跑批，会把父树重测一遍：曲线记基线 31.67，归因里写 33.00，
+    两边都真，差的就是噪声。原来看板上归因节"父树 33.00 → 37.00"和曲线节
+    "31.67 → 36.00"并排出现，读者只会以为有一个是错的。
+    """
+    run = _curve(tmp_path, rounds=[_rnd(1, 33.0, "accepted")], baseline_mean=31.67)
+    p = build_payload(run, tasks_path=_tasks(tmp_path),
+                      attr_dir=_attr(tmp_path, base_mean=33.0))
+    drift = p["attribution"]["_parent_drift"]
+    assert drift == {"attribution": 33.0, "curve": 31.67}
+
+
+def test_same_parent_mean_shows_no_drift_note(tmp_path):
+    """差在 0.05 以内就是同一次评测，不要多嘴。"""
+    run = _curve(tmp_path, rounds=[_rnd(1, 33.0, "accepted")], baseline_mean=30.0)
+    p = build_payload(run, tasks_path=_tasks(tmp_path),
+                      attr_dir=_attr(tmp_path, base_mean=30.0))
+    assert p["attribution"]["_parent_drift"] is None
